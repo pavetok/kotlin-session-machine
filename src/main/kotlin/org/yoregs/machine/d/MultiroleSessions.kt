@@ -4,8 +4,7 @@ import org.yoregs.machine.d.QueueCommand.Deq
 import org.yoregs.machine.d.QueueCommand.Enq
 import org.yoregs.machine.d.QueueEvent.None
 import org.yoregs.machine.d.QueueEvent.Some
-import org.yoregs.machine.d.QueueRole.Client
-import org.yoregs.machine.d.QueueRole.Queue
+import org.yoregs.machine.d.QueueVar.*
 import kotlin.reflect.KClass
 
 // LIBRARY CODE
@@ -13,6 +12,7 @@ import kotlin.reflect.KClass
 interface Endpoint
 interface Role
 interface Choice
+interface Var
 
 class InternalChoice<T> : Endpoint
 class ExternalChoice<T> : Endpoint
@@ -49,20 +49,22 @@ class SessionTypeBuilder<With : Choice, Plus : Choice> {
         return this.apply(initializer)
     }
 
-    fun case(case: With, initializer: SessionTypeBuilder<With, Plus>.() -> Unit): SessionTypeBuilder<With, Plus> {
+    fun case(
+        case: With, initializer: SessionTypeBuilder<With, Plus>.() -> Unit
+    ): SessionTypeBuilder<With, Plus> {
         return this.apply(initializer)
     }
 
-    fun tell(case: Plus, initializer: SessionTypeBuilder<With, Plus>.() -> Unit): SessionTypeBuilder<With, Plus> {
+    fun dot(
+        case: Plus, initializer: SessionTypeBuilder<With, Plus>.() -> Unit
+    ): SessionTypeBuilder<With, Plus> {
         return this.apply(initializer)
     }
 
-    fun close(): SessionTypeBuilder<With, Plus> {
-        return this
+    fun close() {
     }
 
-    fun wait(): SessionTypeBuilder<With, Plus> {
-        return this
+    fun await() {
     }
 }
 
@@ -72,16 +74,12 @@ fun <With : Choice, Plus : Choice> session(
     return SessionTypeBuilder<With, Plus>().apply(initializer)
 }
 
-class SessionProcessBuilder<With : Choice, Plus : Choice>(sessionType: SessionTypeBuilder<With, Plus>) {
-
-    var sessionType: SessionTypeBuilder<With, Plus> = sessionType
-    var endpoint = ExternalChoice<With>()
+class SessionProcessBuilder<With : Choice, Plus : Choice> {
 
     fun match(
-        endpoint: ExternalChoice<With>,
+        endpoint: Var,
         initializer: SessionProcessBuilder<With, Plus>.() -> Unit
     ): SessionProcessBuilder<With, Plus> {
-        this.endpoint = endpoint
         return this.apply(initializer)
     }
 
@@ -93,38 +91,33 @@ class SessionProcessBuilder<With : Choice, Plus : Choice>(sessionType: SessionTy
         return this
     }
 
-    inline fun <reified T> receive(endpoint: Lolly<T>): T {
+    inline fun <reified T> receive(endpoint: Var): T {
         // TODO: прямо в билдере и возвращать?
         return T::class.java.newInstance()
     }
 
-    fun <T> send(endpoint: Tensor<T>, value: T): SessionProcessBuilder<With, Plus> {
-        return this
+    fun <T> send(endpoint: Var, value: T) {
     }
 
-    fun tell(
-        endpoint: InternalChoice<Plus>,
-        case: Plus,
+    fun dot(
+        endpoint: Var,
+        case: Choice,
         initializer: SessionProcessBuilder<With, Plus>.() -> Unit
     ): SessionProcessBuilder<With, Plus> {
         return this.apply(initializer)
     }
 
-    fun <R : Role, E : Endpoint> endpoint(role: R): E {
-        // TODO: обезопасить
-        return this.endpoint as E
+    fun endpoint(name: Var, type: SessionTypeBuilder<With, Plus>) {
     }
 
-    fun forward(endpoint: Endpoint): SessionProcessBuilder<With, Plus> {
-        return this
+    fun again(endpoint: Var) {
     }
 }
 
 fun <With : Choice, Plus : Choice> process(
-    sessionType: SessionTypeBuilder<With, Plus>,
     initializer: SessionProcessBuilder<With, Plus>.() -> Unit
 ): SessionProcessBuilder<With, Plus> {
-    val sessionProcessBuilder = SessionProcessBuilder<With, Plus>(sessionType)
+    val sessionProcessBuilder = SessionProcessBuilder<With, Plus>()
     initializer.invoke(sessionProcessBuilder)
     return sessionProcessBuilder
 }
@@ -147,14 +140,20 @@ sealed class QueueEvent : Choice {
     object Some : QueueEvent()
 }
 
-val queueType = session<QueueCommand, QueueEvent> {
+sealed class QueueVar : Var {
+    object queue : QueueVar()
+    object tail : QueueVar()
+    object client : QueueVar()
+}
+
+val QueueType = session<QueueCommand, QueueEvent> {
     external(QueueCommand::class) {
         case(Deq) {
             internal(QueueEvent::class) {
-                tell(None) {
+                dot(None) {
                     close()
                 }
-                tell(Some) {
+                dot(Some) {
                     tensor(String::class) {
                         external(QueueCommand::class) { }
                     }
@@ -169,12 +168,12 @@ val queueType = session<QueueCommand, QueueEvent> {
     }
 }
 
-val clientType = session<QueueEvent, QueueCommand> {
+val ClientType = session<QueueEvent, QueueCommand> {
     internal(QueueCommand::class) {
-        tell(Deq) {
+        dot(Deq) {
             external(QueueEvent::class) {
                 case(None) {
-                    wait()
+                    await()
                 }
                 case(Some) {
                     lolly(String::class) {
@@ -183,7 +182,7 @@ val clientType = session<QueueEvent, QueueCommand> {
                 }
             }
         }
-        tell(Enq) {
+        dot(Enq) {
             tensor(String::class) {
                 internal(QueueCommand::class) { }
             }
@@ -191,32 +190,37 @@ val clientType = session<QueueEvent, QueueCommand> {
     }
 }
 
-val queueProcess = process(queueType) {
-    // TODO: безопасное внедрение эндпоинтов
-    val q1: ExternalChoice<QueueCommand> = endpoint(Queue)
-    match(q1) {
+val queueProcess = process<QueueCommand, QueueEvent> {
+    // TODO: типа обезопасить?
+    endpoint(queue, QueueType)
+    // TODO: с чего начинается очередь?
+    endpoint(tail, QueueType)
+    match(queue) {
         case(Enq) {
-            val q2: Lolly<String> = endpoint(Queue)
-            val elem = receive(q2)
-            forward(q1)
+            val elem: String = receive(queue)
+            dot(tail, Enq) {
+                send(tail, elem)
+                again(queue)
+            }
         }
         case(Deq) {
-            val q2: InternalChoice<QueueEvent> = endpoint(Queue)
-            tell(q2, Some) {
-                val q3: Tensor<String> = endpoint(Queue)
-                send(q3, "Hello")
-                forward(q1)
+            dot(queue, Some) {
+                send(queue, "Hello")
+                again(queue)
             }
         }
     }
 }
 
-val clientProcess = process(clientType) {
-    val c1: InternalChoice<QueueCommand> = endpoint(Client)
-    tell(c1, Enq) {
-        val c2: Tensor<String> = endpoint(Client)
-        send(c2, "Hello")
-        forward(c1)
+val clientProcess = process<QueueEvent, QueueCommand> {
+    // TODO: смущает название переменной, т.к. по идее у клиента ссылка на очередь должна быть
+    endpoint(client, ClientType)
+    dot(client, Enq) {
+        send(client, "Hello")
+        again(client)
     }
-    // TODO: добавление N элементов
+    dot(client, Enq) {
+        send(client, "World!")
+        again(client)
+    }
 }
