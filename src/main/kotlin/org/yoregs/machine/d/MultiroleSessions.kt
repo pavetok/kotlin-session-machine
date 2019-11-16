@@ -49,20 +49,20 @@ class SessionTypeBuilder<With : Choice, Plus : Choice> {
         return this.apply(initializer)
     }
 
+    fun case(case: With, initializer: SessionTypeBuilder<With, Plus>.() -> Unit): SessionTypeBuilder<With, Plus> {
+        return this.apply(initializer)
+    }
+
+    fun tell(case: Plus, initializer: SessionTypeBuilder<With, Plus>.() -> Unit): SessionTypeBuilder<With, Plus> {
+        return this.apply(initializer)
+    }
+
     fun close(): SessionTypeBuilder<With, Plus> {
         return this
     }
 
     fun wait(): SessionTypeBuilder<With, Plus> {
         return this
-    }
-
-    fun case(case: With, initializer: SessionTypeBuilder<With, Plus>.() -> Unit): SessionTypeBuilder<With, Plus> {
-        return this.apply(initializer)
-    }
-
-    fun dot(case: Plus, initializer: SessionTypeBuilder<With, Plus>.() -> Unit): SessionTypeBuilder<With, Plus> {
-        return this.apply(initializer)
     }
 }
 
@@ -94,7 +94,7 @@ class SessionProcessBuilder<With : Choice, Plus : Choice>(sessionType: SessionTy
     }
 
     inline fun <reified T> receive(endpoint: Lolly<T>): T {
-        // TODO: допилить
+        // TODO: прямо в билдере и возвращать?
         return T::class.java.newInstance()
     }
 
@@ -102,7 +102,7 @@ class SessionProcessBuilder<With : Choice, Plus : Choice>(sessionType: SessionTy
         return this
     }
 
-    fun dot(
+    fun tell(
         endpoint: InternalChoice<Plus>,
         case: Plus,
         initializer: SessionProcessBuilder<With, Plus>.() -> Unit
@@ -151,10 +151,10 @@ val queueType = session<QueueCommand, QueueEvent> {
     external(QueueCommand::class) {
         case(Deq) {
             internal(QueueEvent::class) {
-                dot(None) {
+                tell(None) {
                     close()
                 }
-                dot(Some) {
+                tell(Some) {
                     tensor(String::class) {
                         external(QueueCommand::class) { }
                     }
@@ -171,7 +171,7 @@ val queueType = session<QueueCommand, QueueEvent> {
 
 val clientType = session<QueueEvent, QueueCommand> {
     internal(QueueCommand::class) {
-        dot(Deq) {
+        tell(Deq) {
             external(QueueEvent::class) {
                 case(None) {
                     wait()
@@ -183,7 +183,7 @@ val clientType = session<QueueEvent, QueueCommand> {
                 }
             }
         }
-        dot(Enq) {
+        tell(Enq) {
             tensor(String::class) {
                 internal(QueueCommand::class) { }
             }
@@ -192,6 +192,7 @@ val clientType = session<QueueEvent, QueueCommand> {
 }
 
 val queueProcess = process(queueType) {
+    // TODO: безопасное внедрение эндпоинтов
     val q1: ExternalChoice<QueueCommand> = endpoint(Queue)
     match(q1) {
         case(Enq) {
@@ -201,7 +202,7 @@ val queueProcess = process(queueType) {
         }
         case(Deq) {
             val q2: InternalChoice<QueueEvent> = endpoint(Queue)
-            dot(q2, Some) {
+            tell(q2, Some) {
                 val q3: Tensor<String> = endpoint(Queue)
                 send(q3, "Hello")
                 forward(q1)
@@ -212,7 +213,7 @@ val queueProcess = process(queueType) {
 
 val clientProcess = process(clientType) {
     val c1: InternalChoice<QueueCommand> = endpoint(Client)
-    dot(c1, Enq) {
+    tell(c1, Enq) {
         val c2: Tensor<String> = endpoint(Client)
         send(c2, "Hello")
         forward(c1)
