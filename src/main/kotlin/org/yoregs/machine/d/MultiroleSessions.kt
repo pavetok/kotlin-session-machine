@@ -56,7 +56,7 @@ class SessionTypeBuilder<With : Choice, Plus : Choice> {
         return this
     }
 
-    // TODO: можно ли конкретизировать Choice?
+    // TODO: нужно конкретизировать Choice?
     fun case(case: Choice, initializer: SessionTypeBuilder<With, Plus>.() -> Unit): SessionTypeBuilder<With, Plus> {
         return this.apply(initializer)
     }
@@ -66,9 +66,10 @@ fun <With : Choice, Plus : Choice> session(initializer: SessionTypeBuilder<With,
     return SessionTypeBuilder<With, Plus>().apply(initializer)
 }
 
-class SessionProcessBuilder<With : Choice, Plus : Choice> {  // TODO: можно ли без дженериков на уровне класса?
+class SessionProcessBuilder<With : Choice, Plus : Choice>(sessionType: SessionTypeBuilder<With, Plus>) {
 
-    var endpoint: ExternalChoice<With> = ExternalChoice()
+    var sessionType: SessionTypeBuilder<With, Plus> = sessionType
+    var endpoint = ExternalChoice<With>()
 
     fun match(
         endpoint: ExternalChoice<With>,
@@ -86,11 +87,12 @@ class SessionProcessBuilder<With : Choice, Plus : Choice> {  // TODO: можно
         return this
     }
 
-    inline fun <reified P2> receive(endpoint: Lolly<P2>): P2 {
-        return P2::class.java.newInstance()
+    inline fun <reified T> receive(endpoint: Lolly<T>): T {
+        // TODO: допилить
+        return T::class.java.newInstance()
     }
 
-    fun <P1> send(endpoint: Tensor<P1>, value: P1): SessionProcessBuilder<With, Plus> {
+    fun <T> send(endpoint: Tensor<T>, value: T): SessionProcessBuilder<With, Plus> {
         return this
     }
 
@@ -103,7 +105,7 @@ class SessionProcessBuilder<With : Choice, Plus : Choice> {  // TODO: можно
     }
 
     fun <R : Role, E : Endpoint> endpoint(role: R): E {
-        return this.endpoint as E  // TODO: type safety
+        return this.endpoint as E  // TODO: обезопасить
     }
 
     fun forward(endpoint: ExternalChoice<With>): SessionProcessBuilder<With, Plus> {
@@ -111,11 +113,11 @@ class SessionProcessBuilder<With : Choice, Plus : Choice> {  // TODO: можно
     }
 }
 
-fun <T : Choice, R : Choice> process(
-    typeBuilder: SessionTypeBuilder<T, R>,
-    initializer: SessionProcessBuilder<T, R>.() -> Unit
-): SessionProcessBuilder<T, R> {
-    val sessionProcessBuilder = SessionProcessBuilder<T, R>()
+fun <With : Choice, Plus : Choice> process(
+    sessionType: SessionTypeBuilder<With, Plus>,
+    initializer: SessionProcessBuilder<With, Plus>.() -> Unit
+): SessionProcessBuilder<With, Plus> {
+    val sessionProcessBuilder = SessionProcessBuilder<With, Plus>(sessionType)
     initializer.invoke(sessionProcessBuilder)
     return sessionProcessBuilder
 }
