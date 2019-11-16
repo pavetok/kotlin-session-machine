@@ -4,6 +4,7 @@ import org.yoregs.machine.d.QueueCommand.Deq
 import org.yoregs.machine.d.QueueCommand.Enq
 import org.yoregs.machine.d.QueueEvent.None
 import org.yoregs.machine.d.QueueEvent.Some
+import org.yoregs.machine.d.QueueRole.Client
 import org.yoregs.machine.d.QueueRole.Queue
 import kotlin.reflect.KClass
 
@@ -20,14 +21,14 @@ class Tensor<T> : Endpoint
 
 class SessionTypeBuilder<With : Choice, Plus : Choice> {
 
-    fun externalChoice(
+    fun external(
         choiceType: KClass<With>,
         initializer: SessionTypeBuilder<With, Plus>.() -> Unit
     ): SessionTypeBuilder<With, Plus> {
         return this.apply(initializer)
     }
 
-    fun internalChoice(
+    fun internal(
         choiceType: KClass<Plus>,
         initializer: SessionTypeBuilder<With, Plus>.() -> Unit
     ): SessionTypeBuilder<With, Plus> {
@@ -56,13 +57,18 @@ class SessionTypeBuilder<With : Choice, Plus : Choice> {
         return this
     }
 
-    // TODO: нужно конкретизировать Choice?
-    fun case(case: Choice, initializer: SessionTypeBuilder<With, Plus>.() -> Unit): SessionTypeBuilder<With, Plus> {
+    fun case(case: With, initializer: SessionTypeBuilder<With, Plus>.() -> Unit): SessionTypeBuilder<With, Plus> {
+        return this.apply(initializer)
+    }
+
+    fun dot(case: Plus, initializer: SessionTypeBuilder<With, Plus>.() -> Unit): SessionTypeBuilder<With, Plus> {
         return this.apply(initializer)
     }
 }
 
-fun <With : Choice, Plus : Choice> session(initializer: SessionTypeBuilder<With, Plus>.() -> Unit): SessionTypeBuilder<With, Plus> {
+fun <With : Choice, Plus : Choice> session(
+    initializer: SessionTypeBuilder<With, Plus>.() -> Unit
+): SessionTypeBuilder<With, Plus> {
     return SessionTypeBuilder<With, Plus>().apply(initializer)
 }
 
@@ -105,10 +111,11 @@ class SessionProcessBuilder<With : Choice, Plus : Choice>(sessionType: SessionTy
     }
 
     fun <R : Role, E : Endpoint> endpoint(role: R): E {
-        return this.endpoint as E  // TODO: обезопасить
+        // TODO: обезопасить
+        return this.endpoint as E
     }
 
-    fun forward(endpoint: ExternalChoice<With>): SessionProcessBuilder<With, Plus> {
+    fun forward(endpoint: Endpoint): SessionProcessBuilder<With, Plus> {
         return this
     }
 }
@@ -126,6 +133,7 @@ fun <With : Choice, Plus : Choice> process(
 
 sealed class QueueRole : Role {
     object Queue : QueueRole()
+    object Client : QueueRole()
 }
 
 sealed class QueueCommand : Choice {
@@ -140,44 +148,44 @@ sealed class QueueEvent : Choice {
 }
 
 val queueType = session<QueueCommand, QueueEvent> {
-    externalChoice(QueueCommand::class) {
+    external(QueueCommand::class) {
         case(Deq) {
-            internalChoice(QueueEvent::class) {
-                case(None) {
+            internal(QueueEvent::class) {
+                dot(None) {
                     close()
                 }
-                case(Some) {
+                dot(Some) {
                     tensor(String::class) {
-                        externalChoice(QueueCommand::class) { }
+                        external(QueueCommand::class) { }
                     }
                 }
             }
         }
         case(Enq) {
             lolly(String::class) {
-                externalChoice(QueueCommand::class) { }
+                external(QueueCommand::class) { }
             }
         }
     }
 }
 
 val clientType = session<QueueEvent, QueueCommand> {
-    internalChoice(QueueCommand::class) {
-        case(Deq) {
-            externalChoice(QueueEvent::class) {
+    internal(QueueCommand::class) {
+        dot(Deq) {
+            external(QueueEvent::class) {
                 case(None) {
                     wait()
                 }
                 case(Some) {
                     lolly(String::class) {
-                        internalChoice(QueueCommand::class) { }
+                        internal(QueueCommand::class) { }
                     }
                 }
             }
         }
-        case(Enq) {
+        dot(Enq) {
             tensor(String::class) {
-                internalChoice(QueueCommand::class) { }
+                internal(QueueCommand::class) { }
             }
         }
     }
@@ -200,4 +208,14 @@ val queueProcess = process(queueType) {
             }
         }
     }
+}
+
+val clientProcess = process(clientType) {
+    val c1: InternalChoice<QueueCommand> = endpoint(Client)
+    dot(c1, Enq) {
+        val c2: Tensor<String> = endpoint(Client)
+        send(c2, "Hello")
+        forward(c1)
+    }
+    // TODO: добавление N элементов
 }
