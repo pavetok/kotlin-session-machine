@@ -5,6 +5,7 @@ import org.yoregs.machine.d.QueueCommand.Enq
 import org.yoregs.machine.d.QueueEvent.None
 import org.yoregs.machine.d.QueueEvent.Some
 import org.yoregs.machine.d.QueueRole.Queue
+import kotlin.reflect.KClass
 
 // LIBRARY CODE
 
@@ -17,47 +18,57 @@ class ExternalChoice<T> : Endpoint
 class Lolly<T> : Endpoint
 class Tensor<T> : Endpoint
 
-class SessionTypeBuilder {
-    fun <T> with(initializer: SessionTypeBuilder.() -> Unit): SessionTypeBuilder {
+class SessionTypeBuilder<With : Choice, Plus : Choice> {
+
+    fun externalChoice(
+        choiceType: KClass<With>,
+        initializer: SessionTypeBuilder<With, Plus>.() -> Unit
+    ): SessionTypeBuilder<With, Plus> {
         return this.apply(initializer)
     }
 
-    fun <T> plus(initializer: SessionTypeBuilder.() -> Unit): SessionTypeBuilder {
+    fun internalChoice(
+        choiceType: KClass<Plus>,
+        initializer: SessionTypeBuilder<With, Plus>.() -> Unit
+    ): SessionTypeBuilder<With, Plus> {
         return this.apply(initializer)
     }
 
-    fun <T> lolly(initializer: SessionTypeBuilder.() -> Unit): SessionTypeBuilder {
+    fun <T : Any> lolly(
+        valueType: KClass<T>,
+        initializer: SessionTypeBuilder<With, Plus>.() -> Unit
+    ): SessionTypeBuilder<With, Plus> {
         return this.apply(initializer)
     }
 
-    fun <T> tensor(initializer: SessionTypeBuilder.() -> Unit): SessionTypeBuilder {
+    fun <T : Any> tensor(
+        valueType: KClass<T>,
+        initializer: SessionTypeBuilder<With, Plus>.() -> Unit
+    ): SessionTypeBuilder<With, Plus> {
         return this.apply(initializer)
     }
 
-    fun then(continuation: SessionTypeBuilder): SessionTypeBuilder {
-        return continuation
-    }
-
-    fun close(): SessionTypeBuilder {
+    fun close(): SessionTypeBuilder<With, Plus> {
         return this
     }
 
-    fun wait(): SessionTypeBuilder {
+    fun wait(): SessionTypeBuilder<With, Plus> {
         return this
     }
 
-    fun label(case: Any, initializer: SessionTypeBuilder.() -> Unit): SessionTypeBuilder {
+    // TODO: можно ли конкретизировать Choice?
+    fun case(case: Choice, initializer: SessionTypeBuilder<With, Plus>.() -> Unit): SessionTypeBuilder<With, Plus> {
         return this.apply(initializer)
     }
 }
 
-fun session(initializer: SessionTypeBuilder.() -> Unit): SessionTypeBuilder {
-    return SessionTypeBuilder().apply(initializer)
+fun <With : Choice, Plus : Choice> session(initializer: SessionTypeBuilder<With, Plus>.() -> Unit): SessionTypeBuilder<With, Plus> {
+    return SessionTypeBuilder<With, Plus>().apply(initializer)
 }
 
-class SessionProcessBuilder<With : Choice, Plus : Choice> {
+class SessionProcessBuilder<With : Choice, Plus : Choice> {  // TODO: можно ли без дженериков на уровне класса?
 
-    var endpoint: ExternalChoice<With> = ExternalChoice<With>()
+    var endpoint: ExternalChoice<With> = ExternalChoice()
 
     fun match(
         endpoint: ExternalChoice<With>,
@@ -101,7 +112,7 @@ class SessionProcessBuilder<With : Choice, Plus : Choice> {
 }
 
 fun <T : Choice, R : Choice> process(
-    type: SessionTypeBuilder,
+    typeBuilder: SessionTypeBuilder<T, R>,
     initializer: SessionProcessBuilder<T, R>.() -> Unit
 ): SessionProcessBuilder<T, R> {
     val sessionProcessBuilder = SessionProcessBuilder<T, R>()
@@ -118,6 +129,7 @@ sealed class QueueRole : Role {
 sealed class QueueCommand : Choice {
     object Enq : QueueCommand()
     object Deq : QueueCommand()
+    companion object
 }
 
 sealed class QueueEvent : Choice {
@@ -125,51 +137,51 @@ sealed class QueueEvent : Choice {
     object Some : QueueEvent()
 }
 
-val queueType = session {
-    with<QueueCommand> {
-        label(Deq) {
-            plus<QueueEvent> {
-                label(None) {
+val queueType = session<QueueCommand, QueueEvent> {
+    externalChoice(QueueCommand::class) {
+        case(Deq) {
+            internalChoice(QueueEvent::class) {
+                case(None) {
                     close()
                 }
-                label(Some) {
-                    tensor<String> {
-                        then(this)
+                case(Some) {
+                    tensor(String::class) {
+                        externalChoice(QueueCommand::class) { }
                     }
                 }
             }
         }
-        label(Enq) {
-            lolly<String> {
-                then(this)
+        case(Enq) {
+            lolly(String::class) {
+                externalChoice(QueueCommand::class) { }
             }
         }
     }
 }
 
-val clientType = session {
-    plus<QueueCommand> {
-        label(Deq) {
-            with<QueueEvent> {
-                label(None) {
+val clientType = session<QueueEvent, QueueCommand> {
+    internalChoice(QueueCommand::class) {
+        case(Deq) {
+            externalChoice(QueueEvent::class) {
+                case(None) {
                     wait()
                 }
-                label(Some) {
-                    lolly<String> {
-                        then(this)
+                case(Some) {
+                    lolly(String::class) {
+                        internalChoice(QueueCommand::class) { }
                     }
                 }
             }
         }
-        label(Enq) {
-            tensor<String> {
-                then(this)
+        case(Enq) {
+            tensor(String::class) {
+                internalChoice(QueueCommand::class) { }
             }
         }
     }
 }
 
-val queueProcess = process<QueueCommand, QueueEvent>(queueType) {
+val queueProcess = process(queueType) {
     val q1: ExternalChoice<QueueCommand> = endpoint(Queue)
     match(q1) {
         case(Enq) {
