@@ -1,40 +1,19 @@
 package org.yoregs.machine.d
 
-import org.yoregs.machine.d.ElementChoice.None
-import org.yoregs.machine.d.ElementChoice.Some
-import org.yoregs.machine.d.QueueChoice.Deq
-import org.yoregs.machine.d.QueueChoice.Enq
+import org.yoregs.machine.d.QueueCommand.Deq
+import org.yoregs.machine.d.QueueCommand.Enq
+import org.yoregs.machine.d.QueueEvent.None
+import org.yoregs.machine.d.QueueEvent.Some
 import org.yoregs.machine.d.QueueSessionRole.Queue
 
-interface Role
-// channel or session
-interface Formula
-
-interface Client : Role {
+sealed class QueueCommand {
+    object Enq : QueueCommand()
+    object Deq : QueueCommand()
 }
 
-interface Provider : Role {
-}
-
-interface Choice : Formula {
-}
-
-interface InternalChoice<out Choice> {
-    fun send(): Choice
-}
-
-interface ExternalChoice<in Choice> {
-    fun receive(choice: Choice)
-}
-
-sealed class QueueChoice {
-    object Enq : QueueChoice()
-    object Deq : QueueChoice()
-}
-
-sealed class ElementChoice {
-    object None : ElementChoice()
-    object Some : ElementChoice()
+sealed class QueueEvent {
+    object None : QueueEvent()
+    object Some : QueueEvent()
 }
 
 class SessionTypeBuilder {
@@ -76,9 +55,9 @@ fun session(initializer: SessionTypeBuilder.() -> Unit): SessionTypeBuilder {
 }
 
 val queueType = session {
-    with<QueueChoice> {
+    with<QueueCommand> {
         label(Deq) {
-            plus<ElementChoice> {
+            plus<QueueEvent> {
                 label(None) {
                     close()
                 }
@@ -98,9 +77,9 @@ val queueType = session {
 }
 
 val clientType = session {
-    plus<QueueChoice> {
+    plus<QueueCommand> {
         label(Deq::class) {
-            with<ElementChoice> {
+            with<QueueEvent> {
                 label(None) {
                     wait()
                 }
@@ -119,68 +98,86 @@ val clientType = session {
     }
 }
 
-class SessionProcessBuilder {
+class SessionProcessBuilder<
+        With,
+        Plus> {
 
-    fun <T> match(chan: With<T>, initializer: SessionProcessBuilder.() -> Unit): SessionProcessBuilder {
+    var endpoint: ExternalChoice<With> = ExternalChoice<With>()
+
+    fun match(
+        endpoint: ExternalChoice<With>,
+        initializer: SessionProcessBuilder<With, Plus>.() -> Unit
+    ): SessionProcessBuilder<With, Plus> {
+        this.endpoint = endpoint
         return this.apply(initializer)
     }
 
-    fun case(case: Any, initializer: SessionProcessBuilder.() -> Unit): SessionProcessBuilder {
+    fun case(
+        case: With,
+        initializer: SessionProcessBuilder<With, Plus>.() -> Unit
+    ): SessionProcessBuilder<With, Plus> {
         initializer.invoke(this)
         return this
     }
 
-    inline fun <reified T> receive(chan: Lolly<T>): T {
-        return T::class.java.newInstance()
+    inline fun <reified P2> receive(endpoint: Lolly<P2>): P2 {
+        return P2::class.java.newInstance()
     }
 
-    fun <T> send(chan: Tensor<T>, payload: T): SessionProcessBuilder {
+    fun <P1> send(endpoint: Tensor<P1>, value: P1): SessionProcessBuilder<With, Plus> {
         return this
     }
 
-    fun <T> dot(chan: Plus<T>, case: T, initializer: SessionProcessBuilder.() -> Unit): SessionProcessBuilder {
+    fun dot(
+        endpoint: InternalChoice<Plus>,
+        case: Plus,
+        initializer: SessionProcessBuilder<With, Plus>.() -> Unit
+    ): SessionProcessBuilder<With, Plus> {
         return this.apply(initializer)
     }
 
-    inline fun <reified T> endpoint(name: QueueSessionRole): T {
-        return T::class.java.newInstance()
+    fun <R : Role, E : Endpoint> endpoint(role: R): E {
+        return this.endpoint as E
     }
 
-    fun <T> fwd(chan: With<T>): SessionProcessBuilder {
+    fun forward(endpoint: ExternalChoice<With>): SessionProcessBuilder<With, Plus> {
         return this
     }
 }
 
-fun process(type: Any, initializer: SessionProcessBuilder.(With<QueueChoice>) -> Unit): SessionProcessBuilder {
-    val sessionProcessBuilder = SessionProcessBuilder()
-    initializer.invoke(sessionProcessBuilder, With())
+fun <T, R> process(type: Any, initializer: SessionProcessBuilder<T, R>.() -> Unit): SessionProcessBuilder<T, R> {
+    val sessionProcessBuilder = SessionProcessBuilder<T, R>()
+    initializer.invoke(sessionProcessBuilder)
     return sessionProcessBuilder
 }
 
-val queueProcess = process(queueType) {
-    val q1: With<QueueChoice> = endpoint(Queue)
+val queueProcess = process<QueueCommand, QueueEvent>(queueType) {
+    val q1: ExternalChoice<QueueCommand> = endpoint(Queue)
     match(q1) {
         case(Enq) {
             val q2: Lolly<String> = endpoint(Queue)
             val elem = receive(q2)
-            fwd(q1)
+            forward(q1)
         }
         case(Deq) {
-            val q2: Plus<ElementChoice> = endpoint(Queue)
+            val q2: InternalChoice<QueueEvent> = endpoint(Queue)
             dot(q2, Some) {
                 val q3: Tensor<String> = endpoint(Queue)
                 send(q3, "Hello")
-                fwd(q1)
+                forward(q1)
             }
         }
     }
 }
 
-sealed class QueueSessionRole {
+interface Endpoint
+interface Role
+
+sealed class QueueSessionRole : Role {
     object Queue : QueueSessionRole()
 }
 
-class Plus<T>
-class With<T>
-class Lolly<T>
-class Tensor<T>
+class InternalChoice<T> : Endpoint
+class ExternalChoice<T> : Endpoint
+class Lolly<T> : Endpoint
+class Tensor<T> : Endpoint
