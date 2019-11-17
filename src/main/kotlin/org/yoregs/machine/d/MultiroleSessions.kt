@@ -1,10 +1,10 @@
 package org.yoregs.machine.d
 
+import org.yoregs.machine.d.QueueBehavior.*
 import org.yoregs.machine.d.QueueCommand.Deq
 import org.yoregs.machine.d.QueueCommand.Enq
 import org.yoregs.machine.d.QueueEvent.None
 import org.yoregs.machine.d.QueueEvent.Some
-import org.yoregs.machine.d.QueueVar.*
 import kotlin.reflect.KClass
 
 // LIBRARY CODE
@@ -12,7 +12,7 @@ import kotlin.reflect.KClass
 interface Endpoint
 interface Role
 interface Choice
-interface Var
+interface Viewpoint
 
 class InternalChoice<T> : Endpoint
 class ExternalChoice<T> : Endpoint
@@ -77,7 +77,7 @@ fun <With : Choice, Plus : Choice> session(
 class SessionProcessBuilder<With : Choice, Plus : Choice> {
 
     fun match(
-        endpoint: Var,
+        viewpoint: Viewpoint,
         initializer: SessionProcessBuilder<With, Plus>.() -> Unit
     ): SessionProcessBuilder<With, Plus> {
         return this.apply(initializer)
@@ -91,26 +91,29 @@ class SessionProcessBuilder<With : Choice, Plus : Choice> {
         return this
     }
 
-    inline fun <reified T> receive(endpoint: Var): T {
+    inline fun <reified T> receive(viewpoint: Viewpoint): T {
         // TODO: прямо в билдере и возвращать?
         return T::class.java.newInstance()
     }
 
-    fun <T> send(endpoint: Var, value: T) {
+    fun <T> send(viewpoint: Viewpoint, value: T) {
     }
 
     fun dot(
-        endpoint: Var,
+        viewpoint: Viewpoint,
         case: Choice,
         initializer: SessionProcessBuilder<With, Plus>.() -> Unit
     ): SessionProcessBuilder<With, Plus> {
         return this.apply(initializer)
     }
 
-    fun endpoint(name: Var, type: SessionTypeBuilder<With, Plus>) {
+    fun viewpoint(viewpoint: Viewpoint, type: SessionTypeBuilder<With, Plus>) {
     }
 
-    fun again(endpoint: Var) {
+    fun dualpoint(viewpoint: Viewpoint, type: SessionTypeBuilder<Plus, With>) {
+    }
+
+    fun again(viewpoint: Viewpoint) {
     }
 }
 
@@ -140,13 +143,13 @@ sealed class QueueEvent : Choice {
     object Some : QueueEvent()
 }
 
-sealed class QueueVar : Var {
-    object queue : QueueVar()
-    object tail : QueueVar()
-    object client : QueueVar()
+sealed class QueueBehavior : Viewpoint {
+    object queue : QueueBehavior()
+    object tail : QueueBehavior()
+    object client : QueueBehavior()
 }
 
-val QueueType = session<QueueCommand, QueueEvent> {
+val QueueServerViewpoint = session<QueueCommand, QueueEvent> {
     external(QueueCommand::class) {
         case(Deq) {
             internal(QueueEvent::class) {
@@ -168,7 +171,7 @@ val QueueType = session<QueueCommand, QueueEvent> {
     }
 }
 
-val ClientType = session<QueueEvent, QueueCommand> {
+val QueueClientViewpoint = session<QueueEvent, QueueCommand> {
     internal(QueueCommand::class) {
         dot(Deq) {
             external(QueueEvent::class) {
@@ -190,14 +193,14 @@ val ClientType = session<QueueEvent, QueueCommand> {
     }
 }
 
-val queueProcess = process<QueueCommand, QueueEvent> {
-    // TODO: типа обезопасить?
-    endpoint(queue, QueueType)
+val queueServerProcess = process<QueueCommand, QueueEvent> {
+    viewpoint(queue, QueueServerViewpoint)
     // TODO: с чего начинается очередь?
-    endpoint(tail, QueueType)
+    dualpoint(tail, QueueClientViewpoint)
     match(queue) {
         case(Enq) {
             val elem: String = receive(queue)
+            // TODO: никаких гарантий, что это корректное обращение к tail!
             dot(tail, Enq) {
                 send(tail, elem)
                 again(queue)
@@ -212,9 +215,9 @@ val queueProcess = process<QueueCommand, QueueEvent> {
     }
 }
 
-val clientProcess = process<QueueEvent, QueueCommand> {
+val queueClientProcess = process<QueueEvent, QueueCommand> {
     // TODO: смущает название переменной, т.к. по идее у клиента ссылка на очередь должна быть
-    endpoint(client, ClientType)
+    viewpoint(client, QueueClientViewpoint)
     dot(client, Enq) {
         send(client, "Hello")
         again(client)
