@@ -1,6 +1,5 @@
 package org.yoregs.machine.d
 
-import org.yoregs.machine.d.QueueBehavior.*
 import org.yoregs.machine.d.QueueCommand.Deq
 import org.yoregs.machine.d.QueueCommand.Enq
 import org.yoregs.machine.d.QueueEvent.None
@@ -12,7 +11,9 @@ import kotlin.reflect.KClass
 interface Endpoint
 interface Role
 interface Choice
-interface Viewpoint
+interface Variable
+
+class LinearVariable : Variable
 
 class InternalChoice<T> : Endpoint
 class ExternalChoice<T> : Endpoint
@@ -77,7 +78,7 @@ fun <With : Choice, Plus : Choice> session(
 class SessionProcessBuilder<With : Choice, Plus : Choice> {
 
     fun match(
-        viewpoint: Viewpoint,
+        variable: Variable,
         initializer: SessionProcessBuilder<With, Plus>.() -> Unit
     ): SessionProcessBuilder<With, Plus> {
         return this.apply(initializer)
@@ -91,29 +92,29 @@ class SessionProcessBuilder<With : Choice, Plus : Choice> {
         return this
     }
 
-    inline fun <reified T> receive(viewpoint: Viewpoint): T {
+    inline fun <reified T> receive(variable: Variable): T {
         // TODO: прямо в билдере и возвращать?
         return T::class.java.newInstance()
     }
 
-    fun <T> send(viewpoint: Viewpoint, value: T) {
+    fun <T> send(variable: Variable, value: T) {
     }
 
     fun dot(
-        viewpoint: Viewpoint,
+        variable: Variable,
         case: Choice,
         initializer: SessionProcessBuilder<With, Plus>.() -> Unit
     ): SessionProcessBuilder<With, Plus> {
         return this.apply(initializer)
     }
 
-    fun viewpoint(viewpoint: Viewpoint, type: SessionTypeBuilder<With, Plus>) {
+    fun <A : Choice, B : Choice> variable(
+        viewpoint: SessionTypeBuilder<A, B>
+    ): Variable {
+        return LinearVariable()
     }
 
-    fun dualpoint(viewpoint: Viewpoint, type: SessionTypeBuilder<Plus, With>) {
-    }
-
-    fun again(viewpoint: Viewpoint) {
+    fun again(variable: Variable) {
     }
 }
 
@@ -141,12 +142,6 @@ sealed class QueueCommand : Choice {
 sealed class QueueEvent : Choice {
     object None : QueueEvent()
     object Some : QueueEvent()
-}
-
-sealed class QueueBehavior : Viewpoint {
-    object queue : QueueBehavior()
-    object tail : QueueBehavior()
-    object client : QueueBehavior()
 }
 
 val QueueServerViewpoint = session<QueueCommand, QueueEvent> {
@@ -194,13 +189,15 @@ val QueueClientViewpoint = session<QueueEvent, QueueCommand> {
 }
 
 val queueServerProcess = process<QueueCommand, QueueEvent> {
-    viewpoint(queue, QueueServerViewpoint)
     // TODO: с чего начинается очередь?
-    dualpoint(tail, QueueClientViewpoint)
+    val queue = variable(QueueServerViewpoint)
+    val tail = variable(QueueClientViewpoint)
     match(queue) {
         case(Enq) {
             val elem: String = receive(queue)
-            // TODO: никаких гарантий, что это корректное обращение к tail!
+            // TODO: отипобезопасить
+            //  - никаких гарантий, что это корректное обращение к tail!
+            //  - можно ли это зафорсить статически?
             dot(tail, Enq) {
                 send(tail, elem)
                 again(queue)
@@ -217,7 +214,7 @@ val queueServerProcess = process<QueueCommand, QueueEvent> {
 
 val queueClientProcess = process<QueueEvent, QueueCommand> {
     // TODO: смущает название переменной, т.к. по идее у клиента ссылка на очередь должна быть
-    viewpoint(client, QueueClientViewpoint)
+    val client = variable(QueueClientViewpoint)
     dot(client, Enq) {
         send(client, "Hello")
         again(client)
