@@ -1,32 +1,33 @@
 package org.yoregs.machine.builder
 
-import org.yoregs.machine.domain.Choice
-import org.yoregs.machine.domain.LinearVariable
-import org.yoregs.machine.domain.Variable
+import org.yoregs.machine.domain.*
 
-fun <With : Choice, Plus : Choice> scenario(
-    initializer: ScenarioBuilder<With, Plus>.() -> Unit
-): ScenarioBuilder<With, Plus> {
-    val processBuilder = ScenarioBuilder<With, Plus>()
-    initializer.invoke(processBuilder)
-    return processBuilder
+inline fun <reified B> scenario(
+    initializer: B.() -> Unit
+): B {
+    val scenarioBuilder = B::class.java.newInstance()
+    initializer.invoke(scenarioBuilder)
+    return scenarioBuilder
 }
 
-open class ScenarioBuilder<With : Choice, Plus : Choice> {
+abstract class ScenarioBuilder<B, With : Choice, Plus : Choice> {
+
+    abstract val self: B
 
     fun match(
         variable: Variable,
-        initializer: ScenarioBuilder<With, Plus>.() -> Unit
-    ): ScenarioBuilder<With, Plus> {
-        return this.apply(initializer)
+        initializer: B.() -> Unit
+    ): B {
+        initializer.invoke(self)
+        return self
     }
 
     fun case(
         case: With,
-        initializer: ScenarioBuilder<With, Plus>.() -> Unit
-    ): ScenarioBuilder<With, Plus> {
-        initializer.invoke(this)
-        return this
+        initializer: B.() -> Unit
+    ): B {
+        initializer.invoke(self)
+        return self
     }
 
     inline fun <reified T> receive(variable: Variable): T {
@@ -37,12 +38,25 @@ open class ScenarioBuilder<With : Choice, Plus : Choice> {
     fun <T> send(variable: Variable, value: T) {
     }
 
+    fun <T> send(endpoint: Tensor<T>, value: T) {
+    }
+
     fun dot(
         variable: Variable,
         case: Choice,
-        initializer: ScenarioBuilder<With, Plus>.() -> Unit
-    ): ScenarioBuilder<With, Plus> {
-        return this.apply(initializer)
+        initializer: B.() -> Unit
+    ): B {
+        initializer.invoke(self)
+        return self
+    }
+
+    fun dot(
+        endpoint: InternalChoice<Plus>,
+        case: Choice,
+        initializer: B.() -> Unit
+    ): B {
+        initializer.invoke(self)
+        return self
     }
 
     fun <A : Choice, B : Choice> variable(

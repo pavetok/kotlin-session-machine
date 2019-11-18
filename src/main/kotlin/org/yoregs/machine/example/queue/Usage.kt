@@ -1,5 +1,6 @@
 package org.yoregs.machine.example.queue
 
+//import org.yoregs.machine.builder.scenario
 import org.yoregs.machine.builder.scenario
 import org.yoregs.machine.builder.viewpoint
 import org.yoregs.machine.example.queue.QueueCommand.Deq
@@ -54,10 +55,10 @@ val QueueClientViewpoint =
     }
 
 val queueServerScenario =
-    scenario<QueueCommand, QueueEvent> {
+    scenario<QueueScenarioBuilder> {
         // TODO: с чего начинается очередь?
         val queue = variable(QueueServerViewpoint)
-        val tail = variable(QueueClientViewpoint)
+//        val tail = variable(QueueClientViewpoint)
         match(queue) {
             case(Enq) {
                 val elem: String = receive(queue)
@@ -79,7 +80,7 @@ val queueServerScenario =
     }
 
 val queueClientScenario =
-    scenario<QueueEvent, QueueCommand> {
+    scenario<QueueScenarioBuilder, QueueEvent, QueueCommand> {
         // TODO: смущает название переменной, т.к. по идее у клиента ссылка на очередь должна быть
         val client = variable(QueueClientViewpoint)
         dot(client, Enq) {
