@@ -7,7 +7,7 @@ interface Variable
 
 class LinearVariable : Variable
 
-class InternalChoice<T> : Endpoint
-class ExternalChoice<T> : Endpoint
-class Lolly<T> : Endpoint
-class Tensor<T> : Endpoint
+interface InternalChoice<T> : Endpoint
+interface ExternalChoice<T> : Endpoint
+interface Lollipop<T> : Endpoint
+interface Tensor<T> : Endpoint

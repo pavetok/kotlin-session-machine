@@ -1,10 +1,10 @@
 package org.yoregs.machine.builder
 
-import org.yoregs.machine.domain.Tensor
+import org.yoregs.machine.domain.Lollipop
 import kotlin.reflect.KClass
 
-open class TensorBuilder<T, A>(typeClass: KClass<A>)
+class LollyBuilder<T, A>(typeClass: KClass<A>)
         where T : Any,
-              A : Tensor<T> {
+              A : Lollipop<T> {
     val typeClass: KClass<A> = typeClass
 }

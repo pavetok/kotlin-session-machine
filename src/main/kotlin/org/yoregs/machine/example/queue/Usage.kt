@@ -1,6 +1,7 @@
 package org.yoregs.machine.example.queue
 
-//import org.yoregs.machine.builder.scenario
+import org.yoregs.machine.builder.external
+import org.yoregs.machine.builder.internal
 import org.yoregs.machine.builder.scenario
 import org.yoregs.machine.builder.viewpoint
 import org.yoregs.machine.example.queue.QueueCommand.Deq
@@ -18,15 +19,38 @@ val QueueServerViewpoint =
                     }
                     dot(Some) {
                         tensor(String::class) {
-                            external(QueueCommand::class) { }
+                            external(QueueCommand::class) {}
                         }
                     }
                 }
             }
             case(Enq) {
                 lolly(String::class) {
-                    external(QueueCommand::class) { }
+                    external(QueueCommand::class) {}
                 }
+            }
+        }
+    }
+
+val QueueServerType =
+    external<QueueCommand, QueueExternalChoice, QueueEvent, QueueInternalChoice, String, QueueLolly, QueueTensor>(
+        QueueExternalChoice::class
+    ) {
+        case(Deq) {
+            internal(QueueInternalChoice::class) {
+                dot(None) {
+                    close()
+                }
+                dot(Some) {
+                    tensor(QueueTensor::class) {
+                        external(QueueExternalChoice::class) {}
+                    }
+                }
+            }
+        }
+        case(Enq) {
+            lolly(QueueLolly::class) {
+                external(QueueExternalChoice::class) {}
             }
         }
     }
@@ -41,15 +65,38 @@ val QueueClientViewpoint =
                     }
                     case(Some) {
                         lolly(String::class) {
-                            internal(QueueCommand::class) { }
+                            internal(QueueCommand::class) {}
                         }
                     }
                 }
             }
             dot(Enq) {
                 tensor(String::class) {
-                    internal(QueueCommand::class) { }
+                    internal(QueueCommand::class) {}
                 }
+            }
+        }
+    }
+
+val QueueClientType =
+    internal<QueueCommand, ClientInternalChoice, QueueEvent, ClientExternalChoice, String, ClientTensor, ClientLolly>(
+        ClientInternalChoice::class
+    ) {
+        dot(Deq) {
+            external(ClientExternalChoice::class) {
+                case(None) {
+                    await()
+                }
+                case(Some) {
+                    lolly(ClientLolly::class) {
+                        internal(ClientInternalChoice::class) {}
+                    }
+                }
+            }
+        }
+        dot(Enq) {
+            tensor(ClientTensor::class) {
+                internal(ClientInternalChoice::class) {}
             }
         }
     }
