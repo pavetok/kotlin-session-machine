@@ -1,7 +1,5 @@
 package org.yoregs.machine.example.queue
 
-import org.yoregs.machine.builder.external
-import org.yoregs.machine.builder.internal
 import org.yoregs.machine.builder.scenario
 import org.yoregs.machine.builder.viewpoint
 import org.yoregs.machine.example.queue.QueueCommand.Deq
@@ -32,29 +30,6 @@ val QueueServerViewpoint =
         }
     }
 
-val QueueServerType =
-    external<QueueCommand, QueueExternalChoice, QueueEvent, QueueInternalChoice, String, QueueLolly, QueueTensor>(
-        QueueExternalChoice::class
-    ) {
-        case(Deq) {
-            internal(QueueInternalChoice::class) {
-                dot(None) {
-                    close()
-                }
-                dot(Some) {
-                    tensor(QueueTensor::class) {
-                        external(QueueExternalChoice::class) {}
-                    }
-                }
-            }
-        }
-        case(Enq) {
-            lolly(QueueLolly::class) {
-                external(QueueExternalChoice::class) {}
-            }
-        }
-    }
-
 val QueueClientViewpoint =
     viewpoint<QueueEvent, QueueCommand> {
         internal(QueueCommand::class) {
@@ -78,64 +53,63 @@ val QueueClientViewpoint =
         }
     }
 
-val QueueClientType =
-    internal<QueueCommand, ClientInternalChoice, QueueEvent, ClientExternalChoice, String, ClientTensor, ClientLolly>(
-        ClientInternalChoice::class
-    ) {
-        dot(Deq) {
-            external(ClientExternalChoice::class) {
-                case(None) {
-                    await()
+val queueServerScenario =
+//    scenario<QueueScenarioBuilder> {
+//        // TODO: с чего начинается очередь?
+//        val queue = variable(QueueServerViewpoint)
+//        val tail = variable(QueueClientViewpoint)
+//        match(queue) {
+//            case(Enq) {
+//                val elem: String = receive(queue)
+//                // TODO: отипобезопасить
+//                //  - никаких гарантий, что это корректное обращение к tail!
+//                //  - можно ли это зафорсить статически?
+//                at(tail).dot(Enq)
+//                dot(tail, Enq) {
+//                    send(tail, elem)
+//                    again(queue)
+//                }
+//            }
+//            case(Deq) {
+//                dot(queue, Some) {
+//                    send(queue, "Hello")
+//                    again(queue)
+//                }
+//            }
+//        }
+//    }
+    scenario<QueueCommand, QueueEvent> {
+        val queue = view(QueueServerViewpoint)
+        val tail = weiv(QueueClientViewpoint)
+        at<QueueCommand>(queue).match {
+            case(Enq) {
+                val elem = at<String>(queue).receive(String::class)
+                to<QueueCommand>(tail).dot(Enq) {
+                    to<String>(tail).send(elem) {
+                        again(queue)
+                    }
                 }
-                case(Some) {
-                    lolly(ClientLolly::class) {
-                        internal(ClientInternalChoice::class) {}
+            }
+            case(Deq) {
+                to<QueueEvent>(queue).dot(Some) {
+                    to<String>(queue).send("hello") {
+                        again(queue)
                     }
                 }
             }
         }
-        dot(Enq) {
-            tensor(ClientTensor::class) {
-                internal(ClientInternalChoice::class) {}
-            }
-        }
     }
 
-val queueServerScenario =
-    scenario<QueueScenarioBuilder> {
-        // TODO: с чего начинается очередь?
-        val queue = variable(QueueServerViewpoint)
-//        val tail = variable(QueueClientViewpoint)
-        match(queue) {
-            case(Enq) {
-                val elem: String = receive(queue)
-                // TODO: отипобезопасить
-                //  - никаких гарантий, что это корректное обращение к tail!
-                //  - можно ли это зафорсить статически?
-                dot(tail, Enq) {
-                    send(tail, elem)
-                    again(queue)
-                }
-            }
-            case(Deq) {
-                dot(queue, Some) {
-                    send(queue, "Hello")
-                    again(queue)
-                }
-            }
-        }
-    }
-
-val queueClientScenario =
-    scenario<QueueScenarioBuilder, QueueEvent, QueueCommand> {
-        // TODO: смущает название переменной, т.к. по идее у клиента ссылка на очередь должна быть
-        val client = variable(QueueClientViewpoint)
-        dot(client, Enq) {
-            send(client, "Hello")
-            again(client)
-        }
-        dot(client, Enq) {
-            send(client, "World!")
-            again(client)
-        }
-    }
+//val queueClientScenario =
+//    scenario<QueueScenarioBuilder, QueueEvent, QueueCommand> {
+//        // TODO: смущает название переменной, т.к. по идее у клиента ссылка на очередь должна быть
+//        val client = variable(QueueClientViewpoint)
+//        dot(client, Enq) {
+//            send(client, "Hello")
+//            again(client)
+//        }
+//        dot(client, Enq) {
+//            send(client, "World!")
+//            again(client)
+//        }
+//    }

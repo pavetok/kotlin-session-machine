@@ -1,10 +1,18 @@
 package org.yoregs.machine.builder
 
-import org.yoregs.machine.domain.Tensor
-import kotlin.reflect.KClass
+import org.yoregs.machine.domain.ScenarioMaker
+import org.yoregs.machine.domain.Variable
 
-open class TensorBuilder<T, A>(typeClass: KClass<A>)
-        where T : Any,
-              A : Tensor<T> {
-    val typeClass: KClass<A> = typeClass
+@ScenarioMaker
+open class TensorBuilder<V> where V : Any {
+
+    fun send(
+        value: V,
+        initializer: TensorBuilder<V>.() -> Unit
+    ) {
+    }
+
+    fun again(variable: Variable) {
+
+    }
 }

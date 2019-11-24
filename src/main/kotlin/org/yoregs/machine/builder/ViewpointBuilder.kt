@@ -11,10 +11,13 @@ fun <With : Choice, Plus : Choice> viewpoint(
 
 open class ViewpointBuilder<With : Choice, Plus : Choice> {
 
+    lateinit var externalChoiceType: KClass<With>
+
     fun external(
         choiceType: KClass<With>,
         initializer: ViewpointBuilder<With, Plus>.() -> Unit
     ): ViewpointBuilder<With, Plus> {
+        externalChoiceType = choiceType
         return this.apply(initializer)
     }
 

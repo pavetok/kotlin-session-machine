@@ -11,3 +11,6 @@ interface InternalChoice<T> : Endpoint
 interface ExternalChoice<T> : Endpoint
 interface Lollipop<T> : Endpoint
 interface Tensor<T> : Endpoint
+
+@DslMarker
+annotation class ScenarioMaker
