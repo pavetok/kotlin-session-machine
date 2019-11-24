@@ -7,7 +7,7 @@ import org.yoregs.machine.domain.Variable
 @ScenarioMaker
 class CaseBuilder<With> where With : Choice {
 
-    fun <V : Any> at(
+    fun <V : Any> from(
         variable: Variable
     ): LollyBuilder<V> {
         return LollyBuilder()
@@ -16,6 +16,6 @@ class CaseBuilder<With> where With : Choice {
     fun <Plus : Choice> to(
         variable: Variable
     ): DotBuilder<Plus> {
-        return DotBuilder<Plus>()
+        return DotBuilder()
     }
 }

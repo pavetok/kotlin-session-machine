@@ -4,7 +4,6 @@ import org.yoregs.machine.domain.Choice
 import org.yoregs.machine.domain.LinearVariable
 import org.yoregs.machine.domain.ScenarioMaker
 import org.yoregs.machine.domain.Variable
-import kotlin.reflect.KClass
 
 fun <With, Plus> scenario(
     initializer: ScenarioBuilder<With, Plus>.() -> Unit
@@ -17,24 +16,49 @@ fun <With, Plus> scenario(
 @ScenarioMaker
 class ScenarioBuilder<With, Plus> where With : Choice, Plus : Choice {
 
-    lateinit var externalChoiceType: KClass<With>
+    lateinit var serverExternalChoice: ExternalChoiceBuilder<With>
+    lateinit var serverInternalChoice: InternalChoiceBuilder<Plus>
 
-    fun view(
-        viewpointBuilder: ViewpointBuilder<With, Plus>
+    lateinit var clientExternalChoice: ExternalChoiceBuilder<Plus>
+    lateinit var clientInternalChoice: InternalChoiceBuilder<With>
+
+    fun server(
+        builder: ExternalChoiceBuilder<With>
     ): Variable {
-        externalChoiceType = viewpointBuilder.externalChoiceType
+        serverExternalChoice = builder
         return LinearVariable()
     }
 
-    fun weiv(
-        viewpointBuilder: ViewpointBuilder<Plus, With>
+    fun server(
+        builder: InternalChoiceBuilder<Plus>
     ): Variable {
+        serverInternalChoice = builder
         return LinearVariable()
     }
 
-    fun <With : Choice> at(
+    fun client(
+        builder: ExternalChoiceBuilder<Plus>
+    ): Variable {
+        clientExternalChoice = builder
+        return LinearVariable()
+    }
+
+    fun client(
+        builder: InternalChoiceBuilder<With>
+    ): Variable {
+        clientInternalChoice = builder
+        return LinearVariable()
+    }
+
+    fun from(
         variable: Variable
     ): MatchBuilder<With> {
-        return MatchBuilder()
+        return MatchBuilder(serverExternalChoice)
+    }
+
+    fun to(
+        variable: Variable
+    ): DotBuilder<With> {
+        return DotBuilder(clientInternalChoice)
     }
 }

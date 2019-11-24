@@ -1,60 +1,38 @@
 package org.yoregs.machine.builder
 
 import org.yoregs.machine.domain.Choice
+import org.yoregs.machine.domain.ScenarioMaker
 import kotlin.reflect.KClass
 
-fun <With : Choice, Plus : Choice> externalChoice(
-    initializer: ExternalChoiceBuilder<With, Plus>.() -> Unit
-): ExternalChoiceBuilder<With, Plus> {
-    return ExternalChoiceBuilder<With, Plus>().apply(initializer)
+fun <With : Choice> external(
+    choiceType: KClass<With>,
+    initializer: ExternalChoiceBuilder<With>.() -> Unit
+): ExternalChoiceBuilder<With> {
+    return ExternalChoiceBuilder<With>(choiceType).apply(initializer)
 }
 
-open class ExternalChoiceBuilder<With : Choice, Plus : Choice> {
+@ScenarioMaker
+open class ExternalChoiceBuilder<With : Choice>(choiceType: KClass<With>) {
 
-    lateinit var externalChoiceType: KClass<With>
+    val choiceType = choiceType
 
-    fun external(
-        choiceType: KClass<With>,
-        initializer: ExternalChoiceBuilder<With, Plus>.() -> Unit
-    ): ExternalChoiceBuilder<With, Plus> {
-        externalChoiceType = choiceType
-        return this.apply(initializer)
-    }
-
-    fun internal(
+    fun <Plus : Choice> internal(
         choiceType: KClass<Plus>,
-        initializer: ExternalChoiceBuilder<With, Plus>.() -> Unit
-    ): ExternalChoiceBuilder<With, Plus> {
-        return this.apply(initializer)
+        initializer: InternalChoiceBuilder<Plus>.() -> Unit
+    ) {
     }
 
     fun <T : Any> lolly(
         valueType: KClass<T>,
-        initializer: ExternalChoiceBuilder<With, Plus>.() -> Unit
-    ): ExternalChoiceBuilder<With, Plus> {
-        return this.apply(initializer)
-    }
-
-    fun <T : Any> tensor(
-        valueType: KClass<T>,
-        initializer: ExternalChoiceBuilder<With, Plus>.() -> Unit
-    ): ExternalChoiceBuilder<With, Plus> {
+        initializer: ExternalChoiceBuilder<With>.() -> Unit
+    ): ExternalChoiceBuilder<With> {
         return this.apply(initializer)
     }
 
     fun case(
-        case: With, initializer: ExternalChoiceBuilder<With, Plus>.() -> Unit
-    ): ExternalChoiceBuilder<With, Plus> {
+        case: With, initializer: ExternalChoiceBuilder<With>.() -> Unit
+    ): ExternalChoiceBuilder<With> {
         return this.apply(initializer)
-    }
-
-    fun dot(
-        case: Plus, initializer: ExternalChoiceBuilder<With, Plus>.() -> Unit
-    ): ExternalChoiceBuilder<With, Plus> {
-        return this.apply(initializer)
-    }
-
-    fun close() {
     }
 
     fun await() {
