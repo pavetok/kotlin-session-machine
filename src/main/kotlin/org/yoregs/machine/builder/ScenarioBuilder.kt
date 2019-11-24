@@ -16,11 +16,10 @@ fun <With, Plus> scenario(
 @ScenarioMaker
 class ScenarioBuilder<With, Plus> where With : Choice, Plus : Choice {
 
-    lateinit var serverExternalChoice: ExternalChoiceBuilder<With>
-    lateinit var serverInternalChoice: InternalChoiceBuilder<Plus>
-
-    lateinit var clientExternalChoice: ExternalChoiceBuilder<Plus>
-    lateinit var clientInternalChoice: InternalChoiceBuilder<With>
+    private lateinit var serverExternalChoice: ExternalChoiceBuilder<With>
+    private lateinit var serverInternalChoice: InternalChoiceBuilder<Plus>
+    private lateinit var clientExternalChoice: ExternalChoiceBuilder<Plus>
+    private lateinit var clientInternalChoice: InternalChoiceBuilder<With>
 
     fun server(
         builder: ExternalChoiceBuilder<With>

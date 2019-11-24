@@ -5,9 +5,9 @@ import org.yoregs.machine.domain.ScenarioMaker
 import org.yoregs.machine.domain.Variable
 
 @ScenarioMaker
-class MatchBuilder<With>(externalChoice: ExternalChoiceBuilder<With>) where With : Choice {
-
-    val externalChoice = externalChoice
+class MatchBuilder<With>(
+    private val externalChoice: ExternalChoiceBuilder<With>
+) where With : Choice {
 
     fun match(
         initializer: MatchBuilder<With>.() -> Unit

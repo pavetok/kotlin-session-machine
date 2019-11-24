@@ -2,11 +2,11 @@ package org.yoregs.machine.builder
 
 import kotlin.reflect.KClass
 
-class LollyBuilder<T> where T : Any {
+class LollyBuilder<V>() where V : Any {
 
     fun receive(
-        typeClass: KClass<T>
-    ): T {
-        return "foo" as T
+        typeClass: KClass<V>
+    ): V {
+        return "foo" as V
     }
 }

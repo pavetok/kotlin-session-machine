@@ -13,9 +13,9 @@ fun <Plus : Choice> internal(
 }
 
 @ScenarioMaker
-open class InternalChoiceBuilder<Plus : Choice>(choiceType: KClass<Plus>) : ViewpointBuilder() {
-
-    val choiceType = choiceType
+open class InternalChoiceBuilder<Plus : Choice>(
+    private val choiceType: KClass<Plus>
+) : ViewpointBuilder() {
 
     fun <With : Choice> external(
         choiceType: KClass<With>,
