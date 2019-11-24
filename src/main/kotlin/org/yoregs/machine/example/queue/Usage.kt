@@ -53,21 +53,20 @@ val QueueClientViewpoint =
 
 val queueServerScenario =
     scenario {
-        // TODO: с чего начинается очередь?
         val client = server(QueueServerViewpoint)
         val tail = client(QueueClientViewpoint)
         at<QueueCommand>(client).match {
             case(Enq) {
-                // TODO: как-то избавиться от параметров
+                // TODO: как избавиться от параметров? как подсказать по-другому?
                 val elem = from<String>(client).receive(String::class)
-                to<QueueCommand>(tail).dot(Enq) {
+                at<QueueCommand>(tail).dot(Enq) {
                     to<String>(tail).send(elem) {
                         again(client)
                     }
                 }
             }
             case(Deq) {
-                to<QueueEvent>(client).dot(Some) {
+                at<QueueEvent>(client).dot(Some) {
                     to<String>(client).send("hello") {
                         again(client)
                     }

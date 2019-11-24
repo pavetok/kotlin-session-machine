@@ -26,7 +26,7 @@ class MatchBuilder<With>(
         return LollyBuilder()
     }
 
-    fun <Plus : Choice> to(
+    fun <Plus : Choice> at(
         variable: Variable
     ): DotBuilder<Plus> {
         return DotBuilder(externalChoice.internalChoice.cast())
