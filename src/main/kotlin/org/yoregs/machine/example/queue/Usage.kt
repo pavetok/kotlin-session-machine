@@ -11,12 +11,6 @@ import org.yoregs.machine.example.queue.QueueEvent.Some
 val QueueServerViewpoint =
     external(QueueCommand::class) {
         case(Deq) {
-            // TODO: В общем случае после case любой connective!
-            //  Как это разрулить, чтобы не плодить уйму generic-параметров?
-            //  1. разные case-билдеры + разные case-методы
-            //  2. параметризированный CaseBuilder (все равно куча методов)
-            //  3. обобщенный билдер + cast
-            //  4. тайпклассы?
             internal(QueueEvent::class) {
                 dot(None) {
                     close()
@@ -58,12 +52,13 @@ val QueueClientViewpoint =
     }
 
 val queueServerScenario =
-    scenario<QueueCommand, QueueEvent> {
+    scenario {
         // TODO: с чего начинается очередь?
         val client = server(QueueServerViewpoint)
         val tail = client(QueueClientViewpoint)
-        from(client).match {
+        at<QueueCommand>(client).match {
             case(Enq) {
+                // TODO: как-то избавиться от параметров
                 val elem = from<String>(client).receive(String::class)
                 to<QueueCommand>(tail).dot(Enq) {
                     to<String>(tail).send(elem) {
@@ -82,14 +77,14 @@ val queueServerScenario =
     }
 
 val queueClientScenario =
-    scenario<QueueCommand, QueueEvent> {
+    scenario {
         val queue = client(QueueClientViewpoint)
-        to(queue).dot(Enq) {
+        to<QueueCommand>(queue).dot(Enq) {
             to<String>(queue).send("hello") {
                 again(queue)
             }
         }
-        to(queue).dot(Enq) {
+        to<QueueCommand>(queue).dot(Enq) {
             to<String>(queue).send("world") {
                 again(queue)
             }

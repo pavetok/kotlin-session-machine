@@ -9,13 +9,13 @@ fun <With : Choice> external(
     choiceType: KClass<With>,
     initializer: ExternalChoiceBuilder<With>.() -> Unit
 ): ExternalChoiceBuilder<With> {
-    return ExternalChoiceBuilder<With>(choiceType).apply(initializer)
+    return ExternalChoiceBuilder(choiceType).apply(initializer)
 }
 
 @ScenarioMaker
 open class ExternalChoiceBuilder<With : Choice>(
     private val choiceType: KClass<With>
-) {
+) : ViewpointBuilder() {
     lateinit var internalChoice: ViewpointBuilder
 
     fun <Plus : Choice> internal(
@@ -26,17 +26,16 @@ open class ExternalChoiceBuilder<With : Choice>(
         initializer.invoke(internalChoice.cast())
     }
 
-    fun <T : Any> lolly(
-        valueType: KClass<T>,
+    fun <V : Any> lolly(
+        valueType: KClass<V>,
         initializer: ExternalChoiceBuilder<With>.() -> Unit
-    ): ExternalChoiceBuilder<With> {
-        return this.apply(initializer)
+    ) {
     }
 
     fun case(
-        case: With, initializer: ExternalChoiceBuilder<With>.() -> Unit
-    ): ExternalChoiceBuilder<With> {
-        return this.apply(initializer)
+        case: With,
+        initializer: ExternalChoiceBuilder<With>.() -> Unit
+    ) {
     }
 
     fun await() {

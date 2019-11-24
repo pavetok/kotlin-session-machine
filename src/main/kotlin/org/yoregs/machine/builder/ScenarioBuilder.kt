@@ -1,63 +1,60 @@
 package org.yoregs.machine.builder
 
-import org.yoregs.machine.domain.Choice
-import org.yoregs.machine.domain.LinearVariable
-import org.yoregs.machine.domain.ScenarioMaker
-import org.yoregs.machine.domain.Variable
+import org.yoregs.machine.domain.*
 
-fun <With, Plus> scenario(
-    initializer: ScenarioBuilder<With, Plus>.() -> Unit
-): ScenarioBuilder<With, Plus> where With : Choice, Plus : Choice {
-    val scenarioBuilder = ScenarioBuilder<With, Plus>()
+fun scenario(
+    initializer: ScenarioBuilder.() -> Unit
+): ScenarioBuilder {
+    val scenarioBuilder = ScenarioBuilder()
     initializer.invoke(scenarioBuilder)
     return scenarioBuilder
 }
 
 @ScenarioMaker
-class ScenarioBuilder<With, Plus> where With : Choice, Plus : Choice {
+class ScenarioBuilder {
 
-    private lateinit var serverExternalChoice: ExternalChoiceBuilder<With>
-    private lateinit var serverInternalChoice: InternalChoiceBuilder<Plus>
-    private lateinit var clientExternalChoice: ExternalChoiceBuilder<Plus>
-    private lateinit var clientInternalChoice: InternalChoiceBuilder<With>
+    private lateinit var serverExternalChoice: ViewpointBuilder
+    private lateinit var serverInternalChoice: ViewpointBuilder
+    private lateinit var clientExternalChoice: ViewpointBuilder
+    private lateinit var clientInternalChoice: ViewpointBuilder
 
-    fun server(
+    fun <With : Choice> server(
         builder: ExternalChoiceBuilder<With>
     ): Variable {
         serverExternalChoice = builder
         return LinearVariable()
     }
 
-    fun server(
+    fun <Plus : Choice> server(
         builder: InternalChoiceBuilder<Plus>
     ): Variable {
         serverInternalChoice = builder
         return LinearVariable()
     }
 
-    fun client(
+    fun <Plus : Choice> client(
         builder: ExternalChoiceBuilder<Plus>
     ): Variable {
         clientExternalChoice = builder
         return LinearVariable()
     }
 
-    fun client(
+    fun <With : Choice> client(
         builder: InternalChoiceBuilder<With>
     ): Variable {
         clientInternalChoice = builder
         return LinearVariable()
     }
 
-    fun from(
+    fun <With : Choice> at(
         variable: Variable
     ): MatchBuilder<With> {
-        return MatchBuilder(serverExternalChoice)
+        return MatchBuilder(serverExternalChoice.cast())
     }
 
-    fun to(
+    fun <With : Choice> to(
         variable: Variable
     ): DotBuilder<With> {
-        return DotBuilder(clientInternalChoice)
+        return DotBuilder(clientInternalChoice.cast())
     }
 }

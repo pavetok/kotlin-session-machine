@@ -23,17 +23,16 @@ open class InternalChoiceBuilder<Plus : Choice>(
     ) {
     }
 
-    fun <T : Any> tensor(
-        valueType: KClass<T>,
+    fun <V : Any> tensor(
+        valueType: KClass<V>,
         initializer: InternalChoiceBuilder<Plus>.() -> Unit
-    ): InternalChoiceBuilder<Plus> {
-        return this.apply(initializer)
+    ) {
     }
 
     fun dot(
-        case: Plus, initializer: InternalChoiceBuilder<Plus>.() -> Unit
-    ): InternalChoiceBuilder<Plus> {
-        return this.apply(initializer)
+        case: Plus,
+        initializer: InternalChoiceBuilder<Plus>.() -> Unit
+    ) {
     }
 
     fun close() {
