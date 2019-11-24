@@ -10,6 +10,10 @@ fun scenario(
     return scenarioBuilder
 }
 
+/**
+ * Keep in mind:
+ *  1. class level generics don't scale to dozens of type parameters
+ */
 @ScenarioMaker
 class ScenarioBuilder {
 
