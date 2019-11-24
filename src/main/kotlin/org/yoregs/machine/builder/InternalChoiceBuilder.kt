@@ -2,6 +2,7 @@ package org.yoregs.machine.builder
 
 import org.yoregs.machine.domain.Choice
 import org.yoregs.machine.domain.ScenarioMaker
+import org.yoregs.machine.domain.ViewpointBuilder
 import kotlin.reflect.KClass
 
 fun <Plus : Choice> internal(
@@ -12,7 +13,7 @@ fun <Plus : Choice> internal(
 }
 
 @ScenarioMaker
-open class InternalChoiceBuilder<Plus : Choice>(choiceType: KClass<Plus>) {
+open class InternalChoiceBuilder<Plus : Choice>(choiceType: KClass<Plus>) : ViewpointBuilder() {
 
     val choiceType = choiceType
 

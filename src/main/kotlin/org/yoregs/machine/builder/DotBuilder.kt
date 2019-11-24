@@ -5,9 +5,9 @@ import org.yoregs.machine.domain.ScenarioMaker
 import org.yoregs.machine.domain.Variable
 
 @ScenarioMaker
-class DotBuilder<A>(choiceBuilder: InternalChoiceBuilder<A>) where A : Choice {
+class DotBuilder<A>(internalChoice: InternalChoiceBuilder<A>) where A : Choice {
 
-    val choiceBuilder = choiceBuilder
+    val internalChoice = internalChoice
 
     fun dot(
         case: A,

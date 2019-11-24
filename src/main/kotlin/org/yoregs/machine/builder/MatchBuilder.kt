@@ -2,6 +2,7 @@ package org.yoregs.machine.builder
 
 import org.yoregs.machine.domain.Choice
 import org.yoregs.machine.domain.ScenarioMaker
+import org.yoregs.machine.domain.Variable
 
 @ScenarioMaker
 class MatchBuilder<With>(externalChoice: ExternalChoiceBuilder<With>) where With : Choice {
@@ -15,13 +16,19 @@ class MatchBuilder<With>(externalChoice: ExternalChoiceBuilder<With>) where With
 
     fun case(
         case: With,
-        initializer: CaseBuilder<With>.() -> Unit
+        initializer: MatchBuilder<With>.() -> Unit
     ) {
     }
 
-    fun <V : Any> dot(
-        case: With,
-        initializer: TensorBuilder<V>.() -> Unit
-    ) {
+    fun <V : Any> from(
+        variable: Variable
+    ): LollyBuilder<V> {
+        return LollyBuilder()
+    }
+
+    fun <Plus : Choice> to(
+        variable: Variable
+    ): DotBuilder<Plus> {
+        return DotBuilder(externalChoice.internalChoice.cast())
     }
 }

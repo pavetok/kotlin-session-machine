@@ -11,6 +11,12 @@ import org.yoregs.machine.example.queue.QueueEvent.Some
 val QueueServerViewpoint =
     external(QueueCommand::class) {
         case(Deq) {
+            // TODO: В общем случае после case любой connective!
+            //  Как это разрулить, чтобы не плодить уйму generic-параметров?
+            //  1. разные case-билдеры + разные case-методы
+            //  2. параметризированный CaseBuilder (все равно куча методов)
+            //  3. обобщенный билдер + cast
+            //  4. тайпклассы?
             internal(QueueEvent::class) {
                 dot(None) {
                     close()

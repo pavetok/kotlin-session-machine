@@ -14,3 +14,10 @@ interface Tensor<T> : Endpoint
 
 @DslMarker
 annotation class ScenarioMaker
+
+abstract class ViewpointBuilder {
+    fun <T : ViewpointBuilder> cast(): T {
+        @Suppress("UNCHECKED_CAST")
+        return this as T
+    }
+}
