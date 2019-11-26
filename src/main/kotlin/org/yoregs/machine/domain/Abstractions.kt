@@ -15,9 +15,10 @@ interface Tensor<T> : Endpoint
 @DslMarker
 annotation class ScenarioMaker
 
-abstract class ViewpointBuilder {
-    fun <T : ViewpointBuilder> cast(): T {
-        @Suppress("UNCHECKED_CAST")
-        return this as T
-    }
+abstract class BuilderScaffold<SELF : BuilderScaffold<SELF>> {
+    abstract fun self(): SELF
 }
+
+abstract class ExternalChoiceScaffold<SELF : ExternalChoiceScaffold<SELF>> : BuilderScaffold<SELF>()
+
+abstract class ViewpointBuilder : BuilderScaffold<ViewpointBuilder>()

@@ -29,6 +29,6 @@ class MatchBuilder<With>(
     fun <Plus : Choice> at(
         variable: Variable
     ): DotBuilder<Plus> {
-        return DotBuilder(externalChoice.internalChoice.cast())
+        return DotBuilder(externalChoice.internalChoice.self())
     }
 }

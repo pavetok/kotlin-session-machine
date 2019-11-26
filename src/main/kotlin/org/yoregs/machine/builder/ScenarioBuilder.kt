@@ -53,12 +53,12 @@ class ScenarioBuilder {
     fun <With : Choice> at(
         variable: Variable
     ): MatchBuilder<With> {
-        return MatchBuilder(serverExternalChoice.cast())
+        return MatchBuilder(serverExternalChoice.self())
     }
 
     fun <With : Choice> to(
         variable: Variable
     ): DotBuilder<With> {
-        return DotBuilder(clientInternalChoice.cast())
+        return DotBuilder(clientInternalChoice.self())
     }
 }

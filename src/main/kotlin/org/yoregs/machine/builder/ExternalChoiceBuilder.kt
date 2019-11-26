@@ -1,6 +1,7 @@
 package org.yoregs.machine.builder
 
 import org.yoregs.machine.domain.Choice
+import org.yoregs.machine.domain.ExternalChoiceScaffold
 import org.yoregs.machine.domain.ScenarioMaker
 import org.yoregs.machine.domain.ViewpointBuilder
 import kotlin.reflect.KClass
@@ -15,7 +16,7 @@ fun <With : Choice> external(
 @ScenarioMaker
 open class ExternalChoiceBuilder<With : Choice>(
     private val choiceType: KClass<With>
-) : ViewpointBuilder() {
+) : ExternalChoiceScaffold<ExternalChoiceBuilder<With>>() {
     lateinit var internalChoice: ViewpointBuilder
 
     fun <Plus : Choice> internal(
@@ -23,7 +24,7 @@ open class ExternalChoiceBuilder<With : Choice>(
         initializer: InternalChoiceBuilder<Plus>.() -> Unit
     ) {
         internalChoice = InternalChoiceBuilder(choiceType)
-        initializer.invoke(internalChoice.cast())
+        initializer.invoke(internalChoice.self())
     }
 
     fun <V : Any> lolly(
@@ -39,5 +40,9 @@ open class ExternalChoiceBuilder<With : Choice>(
     }
 
     fun await() {
+    }
+
+    override fun self(): ExternalChoiceBuilder<With> {
+        return this
     }
 }
