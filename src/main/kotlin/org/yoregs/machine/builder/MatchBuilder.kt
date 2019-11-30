@@ -29,6 +29,7 @@ class MatchBuilder<With>(
     fun <Plus : Choice> at(
         variable: Variable
     ): DotBuilder<Plus> {
-        return DotBuilder(externalChoice.internalChoice.self())
+        @Suppress("UNCHECKED_CAST")
+        return DotBuilder(externalChoice.internalChoice as InternalChoiceBuilder<Plus>)
     }
 }

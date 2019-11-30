@@ -15,10 +15,4 @@ interface Tensor<T> : Endpoint
 @DslMarker
 annotation class ScenarioMaker
 
-abstract class BuilderScaffold<SELF : BuilderScaffold<SELF>> {
-    abstract fun self(): SELF
-}
-
-abstract class ExternalChoiceScaffold<SELF : ExternalChoiceScaffold<SELF>> : BuilderScaffold<SELF>()
-
-abstract class ViewpointBuilder : BuilderScaffold<ViewpointBuilder>()
+abstract class ViewpointBuilder
