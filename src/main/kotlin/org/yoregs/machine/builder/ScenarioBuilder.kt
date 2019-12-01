@@ -1,9 +1,6 @@
 package org.yoregs.machine.builder
 
-import org.yoregs.machine.domain.Choice
-import org.yoregs.machine.domain.LinearVariable
-import org.yoregs.machine.domain.ScenarioMaker
-import org.yoregs.machine.domain.Variable
+import org.yoregs.machine.domain.*
 
 fun scenario(
     initializer: ScenarioBuilder.() -> Unit
@@ -25,12 +22,14 @@ class ScenarioBuilder {
     private lateinit var serverInternalChoice: InternalChoiceBuilder<*>
     private lateinit var clientExternalChoice: ExternalChoiceBuilder<*>
     private lateinit var clientInternalChoice: InternalChoiceBuilder<*>
+    private val endpoints: MutableMap<Key<*>, Any> = mutableMapOf()
 
     fun <With : Choice> server(
         builder: ExternalChoiceBuilder<With>
-    ): Variable {
-        serverExternalChoice = builder
-        return LinearVariable()
+    ): Key<ExternalChoiceBuilder<With>> {
+        val key = Key<ExternalChoiceBuilder<With>>()
+        endpoints[key] = builder
+        return key
     }
 
     fun <Plus : Choice> server(
@@ -49,16 +48,16 @@ class ScenarioBuilder {
 
     fun <With : Choice> client(
         builder: InternalChoiceBuilder<With>
-    ): Variable {
-        clientInternalChoice = builder
-        return LinearVariable()
+    ): Key<InternalChoiceBuilder<With>> {
+        val key = Key<InternalChoiceBuilder<With>>()
+        endpoints[key] = builder
+        return key
     }
 
     fun <With : Choice> at(
-        variable: Variable
+        variable: Key<ExternalChoiceBuilder<With>>
     ): MatchBuilder<With> {
-        @Suppress("UNCHECKED_CAST")
-        return MatchBuilder(serverExternalChoice as ExternalChoiceBuilder<With>)
+        return MatchBuilder(variable.cast(endpoints[variable]))
     }
 
     fun <With : Choice> to(

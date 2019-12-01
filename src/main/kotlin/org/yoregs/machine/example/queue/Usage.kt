@@ -53,22 +53,22 @@ val QueueClientViewpoint =
 
 val queueServerScenario =
     scenario {
-        val client = server(QueueServerViewpoint)
+        val queue = server(QueueServerViewpoint)
         val tail = client(QueueClientViewpoint)
-        at<QueueCommand>(client).match {
+        at(queue).match {
             case(Enq) {
                 // TODO: как избавиться от параметров? как подсказать по-другому?
-                val elem = from<String>(client).receive(String::class)
-                at<QueueCommand>(tail).dot(Enq) {
+                val elem = from<String>(queue).receive(String::class)
+                at(tail).dot(Enq) {
                     to<String>(tail).send(elem) {
-                        again(client)
+                        again(queue)
                     }
                 }
             }
             case(Deq) {
-                at<QueueEvent>(client).dot(Some) {
-                    to<String>(client).send("hello") {
-                        again(client)
+                at<QueueEvent>(queue).dot(Some) {
+                    to<String>(queue).send("hello") {
+                        again(queue)
                     }
                 }
             }
@@ -77,15 +77,15 @@ val queueServerScenario =
 
 val queueClientScenario =
     scenario {
-        val queue = client(QueueClientViewpoint)
-        to<QueueCommand>(queue).dot(Enq) {
-            to<String>(queue).send("hello") {
-                again(queue)
+        val client = client(QueueClientViewpoint)
+        to<QueueCommand>(client).dot(Enq) {
+            to<String>(client).send("hello") {
+                again(client)
             }
         }
-        to<QueueCommand>(queue).dot(Enq) {
-            to<String>(queue).send("world") {
-                again(queue)
+        to<QueueCommand>(client).dot(Enq) {
+            to<String>(client).send("world") {
+                again(client)
             }
         }
     }

@@ -16,3 +16,9 @@ interface Tensor<T> : Endpoint
 annotation class ScenarioMaker
 
 abstract class ViewpointBuilder
+
+class Key<T : Any> {
+    fun cast(value: Any?): T {
+        return value as T
+    }
+}

@@ -1,11 +1,12 @@
 package org.yoregs.machine.builder
 
-import kotlin.reflect.KClass
+import org.yoregs.machine.domain.Lollipop
 
-class LollyBuilder<V>() where V : Any {
+class LollyBuilder<V>(
+    private val lollipop: Lollipop<V>
+) where V : Any {
 
     fun receive(
-        typeClass: KClass<V>
     ): V {
         return "foo" as V
     }
