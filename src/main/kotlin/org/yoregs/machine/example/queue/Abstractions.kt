@@ -5,7 +5,6 @@ import org.yoregs.machine.domain.*
 sealed class QueueCommand : Choice {
     object Enq : QueueCommand()
     object Deq : QueueCommand()
-    companion object
 }
 
 sealed class QueueEvent : Choice {

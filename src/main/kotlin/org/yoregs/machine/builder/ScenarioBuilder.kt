@@ -66,4 +66,10 @@ class ScenarioBuilder {
         @Suppress("UNCHECKED_CAST")
         return DotBuilder(clientInternalChoice as InternalChoiceBuilder<With>)
     }
+
+    fun <With : Choice> to(
+        variable: Key<InternalChoiceBuilder<With>>
+    ): DotBuilder<With> {
+        return DotBuilder(variable.cast(endpoints[variable]))
+    }
 }

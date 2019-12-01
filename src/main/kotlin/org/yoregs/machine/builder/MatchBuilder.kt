@@ -11,24 +11,21 @@ class MatchBuilder<With>(
 
     private val endpoints: MutableMap<Key<*>, Any> = mutableMapOf()
 
-    // code gen
-    lateinit var queue: Key<Lollipop<String>>
-
     fun match(
         initializer: MatchBuilder<With>.() -> Unit
     ) {
     }
 
-    fun case(
+    fun <V : Any> case(
         case: With,
-        initializer: MatchBuilder<With>.() -> Unit
+        initializer: CaseBuilder<With>.(key: Key<Lollipop<V>>) -> Unit
     ) {
     }
 
-    fun <V : Any> from(
-        variable: Key<Lollipop<V>>
-    ): LollyBuilder<V> {
-        return LollyBuilder(variable.cast(endpoints[variable]))
+    fun <Plus : Choice> esac(
+        case: With,
+        initializer: CaseBuilder<Plus>.(key: Key<InternalChoiceBuilder<Plus>>) -> Unit
+    ) {
     }
 
     fun <Plus : Choice> at(
@@ -36,11 +33,5 @@ class MatchBuilder<With>(
     ): DotBuilder<Plus> {
         @Suppress("UNCHECKED_CAST")
         return DotBuilder(externalChoice.internalChoice as InternalChoiceBuilder<Plus>)
-    }
-
-    fun <Plus : Choice> at(
-        variable: Key<InternalChoiceBuilder<Plus>>
-    ): DotBuilder<Plus> {
-        return DotBuilder(variable.cast(endpoints[variable]))
     }
 }

@@ -53,22 +53,21 @@ val QueueClientViewpoint =
 
 val queueServerScenario =
     scenario {
-        val queue = server(QueueServerViewpoint)
-        val tail = client(QueueClientViewpoint)
-        at(queue).match {
-            case(Enq) {
-                // TODO: как избавиться от параметров? как подсказать по-другому?
-                val elem = from<String>(queue).receive(String::class)
-                at(tail).dot(Enq) {
-                    to<String>(tail).send(elem) {
-                        again(queue)
+        val queue1 = server(QueueServerViewpoint)
+        val tail1 = client(QueueClientViewpoint)
+        at(queue1).match {
+            case<String>(Enq) { queue2 ->
+                val elem = from(queue2).receive()
+                at(tail1).dot<String>(Enq) { tail2 ->
+                    to(tail2).send(elem) {
+                        again(queue1)
                     }
                 }
             }
-            case(Deq) {
-                at<QueueEvent>(queue).dot(Some) {
-                    to<String>(queue).send("hello") {
-                        again(queue)
+            esac<QueueEvent>(Deq) { queue2 ->
+                at(queue2).dot<String>(Some) { queue3 ->
+                    to(queue3).send("hello") {
+                        again(queue1)
                     }
                 }
             }
@@ -77,15 +76,15 @@ val queueServerScenario =
 
 val queueClientScenario =
     scenario {
-        val client = client(QueueClientViewpoint)
-        to<QueueCommand>(client).dot(Enq) {
-            to<String>(client).send("hello") {
-                again(client)
+        val client1 = client(QueueClientViewpoint)
+        to(client1).dot<String>(Enq) { client2 ->
+            to(client2).send("hello") {
+                again(client1)
             }
         }
-        to<QueueCommand>(client).dot(Enq) {
-            to<String>(client).send("world") {
-                again(client)
+        to(client1).dot<String>(Enq) { client2 ->
+            to(client2).send("world") {
+                again(client1)
             }
         }
     }
