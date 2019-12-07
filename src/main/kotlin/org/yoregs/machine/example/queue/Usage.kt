@@ -5,7 +5,7 @@ import org.yoregs.machine.example.queue.QueueCommand.Enq
 import org.yoregs.machine.example.queue.QueueEvent.None
 import org.yoregs.machine.example.queue.QueueEvent.Some
 
-val elemQueueScenario = ElemScenario<String> { queue, tail, x ->
+val queueElementDef = QueueElementDef<String> { queue, tail, x ->
     on(queue).match {
         case(Enq) { queue ->
             from(queue).receive { y, queue ->
@@ -26,11 +26,11 @@ val elemQueueScenario = ElemScenario<String> { queue, tail, x ->
     }
 }
 
-val emptyQueueScenario = EmptyScenario<String> { queue ->
+val emptyQueueDef = EmptyQueueDef<String> { queue ->
     on(queue).match {
         case(Enq) { queue ->
             from(queue).receive { y, queue ->
-                impl(queue, elemQueueScenario, y)
+                impl(queue, queueElementDef, y)
             }
         }
         case(Deq) { queue ->
@@ -42,7 +42,7 @@ val emptyQueueScenario = EmptyScenario<String> { queue ->
     }
 }
 
-val clientQueueScenario = ClientScenario<String> { client ->
+val queueClientDef = QueueClientDef<String> { client ->
     tell(client).dot(Enq) { client ->
         by(client).send("hello") { client ->
             again(client)

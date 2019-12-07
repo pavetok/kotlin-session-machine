@@ -4,7 +4,7 @@ package org.yoregs.machine.domain
  * Abstractions Correspondence:
  * - Session Type -> Viewpoint Interface
  * - Process Signature -> Signature Interface
- * - Process Definition -> Scenario Builder Class & Instance
+ * - Process Definition -> Scenario Definition (Builder) Class & Instance
  * - Process Instance -> Scenario Instance
  */
 

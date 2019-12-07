@@ -2,58 +2,58 @@ package org.yoregs.machine.example.queue
 
 import org.yoregs.machine.domain.*
 
-interface QueueServerViewpoint<A> {
+interface QueueServerView<A> {
 
     fun on(
         queue: Key<ExternalChoice<QueueCommand>>
-    ): QueueServerViewpoint<A> {
+    ): QueueServerView<A> {
         TODO()
     }
 
     fun match(
-        initializer: QueueServerViewpoint<A>.() -> Unit
+        initializer: QueueServerView<A>.() -> Unit
     ) {
     }
 
     fun case(
         case: QueueCommand.Enq,
-        initializer: QueueServerViewpoint<A>.(queue: Key<Lollipop<A>>) -> Unit
+        initializer: QueueServerView<A>.(queue: Key<Lollipop<A>>) -> Unit
     ) {
     }
 
     fun case(
         case: QueueCommand.Deq,
-        initializer: QueueServerViewpoint<A>.(queue: Key<InternalChoice<QueueEvent>>) -> Unit
+        initializer: QueueServerView<A>.(queue: Key<InternalChoice<QueueEvent>>) -> Unit
     ) {
     }
 
     fun from(
         queue: Key<Lollipop<A>>
-    ): QueueServerViewpoint<A> {
+    ): QueueServerView<A> {
         TODO()
     }
 
     fun receive(
-        initializer: QueueServerViewpoint<A>.(y: A, queue: Key<ExternalChoice<QueueCommand>>) -> Unit
+        initializer: QueueServerView<A>.(y: A, queue: Key<ExternalChoice<QueueCommand>>) -> Unit
     ): A {
         TODO()
     }
 
     fun tell(
         queue: Key<InternalChoice<QueueEvent>>
-    ): QueueServerViewpoint<A> {
+    ): QueueServerView<A> {
         TODO()
     }
 
     fun dot(
         case: QueueEvent.None,
-        initializer: QueueServerViewpoint<A>.(queue: Key<Unit>) -> Unit
+        initializer: QueueServerView<A>.(queue: Key<Unit>) -> Unit
     ) {
     }
 
     fun dot(
         case: QueueEvent.Some,
-        initializer: QueueServerViewpoint<A>.(queue: Key<Tensor<A>>) -> Unit
+        initializer: QueueServerView<A>.(queue: Key<Tensor<A>>) -> Unit
     ) {
     }
 
@@ -71,35 +71,35 @@ interface QueueServerViewpoint<A> {
 
     fun impl(
         queue: Key<ExternalChoice<QueueCommand>>,
-        elemQueueScenario: ElemScenario<A>,
+        queueElemQueueDef: QueueElementDef<A>,
         y: A
     ) {
     }
 }
 
-interface QueueClientViewpoint<A> {
+interface QueueClientView<A> {
 
     fun tell(
         queue: Key<InternalChoice<QueueCommand>>
-    ): QueueClientViewpoint<A> {
+    ): QueueClientView<A> {
         TODO()
     }
 
     fun dot(
         case: QueueCommand.Enq,
-        initializer: QueueClientViewpoint<A>.(queue: Key<Tensor<A>>) -> Unit
+        initializer: QueueClientView<A>.(queue: Key<Tensor<A>>) -> Unit
     ) {
     }
 
     fun by(
         queue: Key<Tensor<A>>
-    ): QueueClientViewpoint<A> {
+    ): QueueClientView<A> {
         TODO()
     }
 
     fun send(
         x: A,
-        initializer: QueueClientViewpoint<A>.(queue: Key<InternalChoice<QueueCommand>>) -> Unit
+        initializer: QueueClientView<A>.(queue: Key<InternalChoice<QueueCommand>>) -> Unit
     ) {
     }
 
@@ -115,42 +115,42 @@ interface QueueClientViewpoint<A> {
     }
 }
 
-interface ElemSignature<A> : QueueServerViewpoint<A>, QueueClientViewpoint<A> {
-    val initializer: ElemSignature<A>.(
+interface QueueElementSig<A> : QueueServerView<A>, QueueClientView<A> {
+    val initializer: QueueElementSig<A>.(
         queue: Key<ExternalChoice<QueueCommand>>,
         tail: Key<InternalChoice<QueueCommand>>,
         x: A
     ) -> Unit
 }
 
-class ElemScenario<A>(
-    override val initializer: ElemSignature<A>.(
+class QueueElementDef<A>(
+    override val initializer: QueueElementSig<A>.(
         queue: Key<ExternalChoice<QueueCommand>>,
         tail: Key<InternalChoice<QueueCommand>>,
         x: A
     ) -> Unit
-) : ElemSignature<A>
+) : QueueElementSig<A>
 
-interface EmptySignature<A> : QueueServerViewpoint<A> {
-    val initializer: EmptySignature<A>.(
+interface EmptyQueueSig<A> : QueueServerView<A> {
+    val initializer: EmptyQueueSig<A>.(
         queue: Key<ExternalChoice<QueueCommand>>
     ) -> Unit
 }
 
-class EmptyScenario<A>(
-    override val initializer: EmptySignature<A>.(
+class EmptyQueueDef<A>(
+    override val initializer: EmptyQueueSig<A>.(
         queue: Key<ExternalChoice<QueueCommand>>
     ) -> Unit
-) : EmptySignature<A>
+) : EmptyQueueSig<A>
 
-interface ClientSignature<A> : QueueClientViewpoint<A> {
-    val initializer: ClientSignature<A>.(
+interface QueueClientSig<A> : QueueClientView<A> {
+    val initializer: QueueClientSig<A>.(
         client: Key<InternalChoice<QueueCommand>>
     ) -> Unit
 }
 
-class ClientScenario<A>(
-    override val initializer: ClientSignature<A>.(
+class QueueClientDef<A>(
+    override val initializer: QueueClientSig<A>.(
         client: Key<InternalChoice<QueueCommand>>
     ) -> Unit
-) : ClientSignature<A>
+) : QueueClientSig<A>
