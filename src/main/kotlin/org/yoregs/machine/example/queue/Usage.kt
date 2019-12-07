@@ -2,7 +2,6 @@ package org.yoregs.machine.example.queue
 
 import org.yoregs.machine.builder.external
 import org.yoregs.machine.builder.internal
-import org.yoregs.machine.builder.scenario
 import org.yoregs.machine.example.queue.QueueCommand.Deq
 import org.yoregs.machine.example.queue.QueueCommand.Enq
 import org.yoregs.machine.example.queue.QueueEvent.None
@@ -51,40 +50,53 @@ val QueueClientViewpoint =
         }
     }
 
-val queueServerScenario =
-    scenario {
-        val queue1 = server(QueueServerViewpoint)
-        val tail1 = client(QueueClientViewpoint)
-        at(queue1).match {
-            case<String>(Enq) { queue2 ->
-                val elem = from(queue2).receive()
-                at(tail1).dot<String>(Enq) { tail2 ->
-                    to(tail2).send(elem) {
-                        again(queue1)
-                    }
-                }
-            }
-            esac<QueueEvent>(Deq) { queue2 ->
-                at(queue2).dot<String>(Some) { queue3 ->
-                    to(queue3).send("hello") {
-                        again(queue1)
+val elemQueueScenario = ElemScenario<String> { queue, tail, x ->
+    on(queue).match {
+        case(Enq) { queue ->
+            from(queue).receive { y, queue ->
+                tell(tail).dot(Enq) { tail ->
+                    by(tail).send(y) { tail ->
+                        again(queue, tail, x)
                     }
                 }
             }
         }
+        case(Deq) { queue ->
+            tell(queue).dot(Some) { queue ->
+                by(queue).send(x) { queue ->
+                    fwd(queue, tail)
+                }
+            }
+        }
     }
+}
 
-val queueClientScenario =
-    scenario {
-        val client1 = client(QueueClientViewpoint)
-        to(client1).dot<String>(Enq) { client2 ->
-            to(client2).send("hello") {
-                again(client1)
+val emptyQueueScenario = EmptyScenario<String> { queue ->
+    on(queue).match {
+        case(Enq) { queue ->
+            from(queue).receive { y, queue ->
+                val empty = this
+                TODO()
             }
         }
-        to(client1).dot<String>(Enq) { client2 ->
-            to(client2).send("world") {
-                again(client1)
+        case(Deq) { queue ->
+            tell(queue).dot(None) { queue ->
+                close(queue)
             }
+
         }
     }
+}
+
+val clientQueueScenario = ClientScenario<String> { client ->
+    tell(client).dot(Enq) { client ->
+        by(client).send("hello") { client ->
+            again(client)
+        }
+    }
+    tell(client).dot(Enq) { client ->
+        by(client).send("world") { client ->
+            again(client)
+        }
+    }
+}

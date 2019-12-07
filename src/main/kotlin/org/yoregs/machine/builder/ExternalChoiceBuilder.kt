@@ -1,6 +1,7 @@
 package org.yoregs.machine.builder
 
 import org.yoregs.machine.domain.Choice
+import org.yoregs.machine.domain.Lollipop
 import org.yoregs.machine.domain.ScenarioMaker
 import org.yoregs.machine.domain.ViewpointBuilder
 import kotlin.reflect.KClass
@@ -17,6 +18,7 @@ open class ExternalChoiceBuilder<With : Choice>(
     private val choiceType: KClass<With>
 ) : ViewpointBuilder() {
     lateinit var internalChoice: InternalChoiceBuilder<*>
+    lateinit var lollipop: Lollipop<*>
 
     fun <Plus : Choice> internal(
         choiceType: KClass<Plus>,
@@ -31,6 +33,7 @@ open class ExternalChoiceBuilder<With : Choice>(
         valueType: KClass<V>,
         initializer: ExternalChoiceBuilder<With>.() -> Unit
     ) {
+        lollipop = Lollipop<V>()
     }
 
     fun case(

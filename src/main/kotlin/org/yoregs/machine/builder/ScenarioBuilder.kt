@@ -1,8 +1,10 @@
 package org.yoregs.machine.builder
 
 import org.yoregs.machine.domain.*
+import kotlin.reflect.KClass
 
 fun scenario(
+    signature: SignatureBuilder,
     initializer: ScenarioBuilder.() -> Unit
 ): ScenarioBuilder {
     val scenarioBuilder = ScenarioBuilder()
@@ -23,6 +25,7 @@ class ScenarioBuilder {
     private lateinit var clientExternalChoice: ExternalChoiceBuilder<*>
     private lateinit var clientInternalChoice: InternalChoiceBuilder<*>
     private val endpoints: MutableMap<Key<*>, Any> = mutableMapOf()
+    private val values: MutableMap<Key<*>, Any> = mutableMapOf()
 
     fun <With : Choice> server(
         builder: ExternalChoiceBuilder<With>
@@ -71,5 +74,11 @@ class ScenarioBuilder {
         variable: Key<InternalChoiceBuilder<With>>
     ): DotBuilder<With> {
         return DotBuilder(variable.cast(endpoints[variable]))
+    }
+
+    fun <V : Any> value(
+        type: KClass<V>
+    ): Key<V> {
+        return Key<V>()
     }
 }
