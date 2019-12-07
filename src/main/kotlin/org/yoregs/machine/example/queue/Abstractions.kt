@@ -11,9 +11,3 @@ sealed class QueueEvent : Choice {
     object None : QueueEvent()
     object Some : QueueEvent()
 }
-
-class QueueExternalChoice<T>
-class QueueInternalChoice<T>
-class QueueLollipop<T>
-class QueueOne
-class QueueTensor<T>

@@ -3,15 +3,9 @@ package org.yoregs.machine.domain
 interface Endpoint
 interface Role
 interface Choice
-interface Choice2<T>
 interface Variable
 
 class LinearVariable : Variable
-
-interface InternalChoice<T> : Endpoint
-interface ExternalChoice<T> : Endpoint
-class Lollipop<T> : Endpoint
-interface Tensor<T> : Endpoint
 
 @DslMarker
 annotation class ScenarioMaker
@@ -28,8 +22,11 @@ class Key<T : Any> {
     }
 }
 
-interface ScenarioViewpoint {
-}
-
+interface ScenarioViewpoint
 interface ScenarioSignature
 interface ScenarioDefinition
+
+class ExternalChoice<T>
+class InternalChoice<T>
+class Lollipop<T>
+class Tensor<T>
