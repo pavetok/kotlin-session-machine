@@ -62,10 +62,17 @@ interface QueueServerViewpoint<A> {
     ) {
     }
 
-    fun again(
+    fun impl(
         queue: Key<ExternalChoice<QueueCommand>>,
         tail: Key<InternalChoice<QueueCommand>>,
         x: A
+    ) {
+    }
+
+    fun impl(
+        queue: Key<ExternalChoice<QueueCommand>>,
+        elemQueueScenario: ElemScenario<A>,
+        y: A
     ) {
     }
 }
@@ -96,7 +103,7 @@ interface QueueClientViewpoint<A> {
     ) {
     }
 
-    fun fwd(
+    fun impl(
         queue: Key<InternalChoice<QueueCommand>>,
         tail: Key<InternalChoice<QueueCommand>>
     ) {

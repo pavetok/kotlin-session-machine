@@ -56,7 +56,7 @@ val elemQueueScenario = ElemScenario<String> { queue, tail, x ->
             from(queue).receive { y, queue ->
                 tell(tail).dot(Enq) { tail ->
                     by(tail).send(y) { tail ->
-                        again(queue, tail, x)
+                        impl(queue, tail, x)
                     }
                 }
             }
@@ -64,7 +64,7 @@ val elemQueueScenario = ElemScenario<String> { queue, tail, x ->
         case(Deq) { queue ->
             tell(queue).dot(Some) { queue ->
                 by(queue).send(x) { queue ->
-                    fwd(queue, tail)
+                    impl(queue, tail)
                 }
             }
         }
@@ -75,8 +75,7 @@ val emptyQueueScenario = EmptyScenario<String> { queue ->
     on(queue).match {
         case(Enq) { queue ->
             from(queue).receive { y, queue ->
-                val empty = this
-                TODO()
+                impl(queue, elemQueueScenario, y)
             }
         }
         case(Deq) { queue ->
