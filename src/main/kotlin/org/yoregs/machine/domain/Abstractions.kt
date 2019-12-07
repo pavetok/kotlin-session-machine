@@ -31,9 +31,11 @@ class Key<T : Any> {
     }
 }
 
-interface ScenarioViewpoint
+interface ScenarioView
 interface ScenarioSignature
-interface ScenarioDefinition
+interface ScenarioDefinition<SELF : ScenarioDefinition<SELF>> {
+    fun def(): SELF
+}
 
 class ExternalChoice<T>
 class InternalChoice<T>

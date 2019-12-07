@@ -1,6 +1,9 @@
 package org.yoregs.machine.example.queue
 
 import org.yoregs.machine.domain.*
+import org.yoregs.machine.example.queue.QueueCommand.Deq
+import org.yoregs.machine.example.queue.QueueCommand.Enq
+import org.yoregs.machine.example.queue.QueueEvent.None
 
 interface QueueServerView<A> {
 
@@ -16,13 +19,13 @@ interface QueueServerView<A> {
     }
 
     fun case(
-        case: QueueCommand.Enq,
+        case: Enq,
         initializer: QueueServerView<A>.(queue: Key<Lollipop<A>>) -> Unit
     ) {
     }
 
     fun case(
-        case: QueueCommand.Deq,
+        case: Deq,
         initializer: QueueServerView<A>.(queue: Key<InternalChoice<QueueEvent>>) -> Unit
     ) {
     }
@@ -46,7 +49,7 @@ interface QueueServerView<A> {
     }
 
     fun dot(
-        case: QueueEvent.None,
+        case: None,
         initializer: QueueServerView<A>.(queue: Key<Unit>) -> Unit
     ) {
     }
@@ -86,7 +89,7 @@ interface QueueClientView<A> {
     }
 
     fun dot(
-        case: QueueCommand.Enq,
+        case: Enq,
         initializer: QueueClientView<A>.(queue: Key<Tensor<A>>) -> Unit
     ) {
     }
@@ -116,41 +119,117 @@ interface QueueClientView<A> {
 }
 
 interface QueueElementSig<A> : QueueServerView<A>, QueueClientView<A> {
-    val initializer: QueueElementSig<A>.(
-        queue: Key<ExternalChoice<QueueCommand>>,
-        tail: Key<InternalChoice<QueueCommand>>,
-        x: A
-    ) -> Unit
+    fun def(
+        initializer: QueueServerView<A>.(
+            queue: Key<ExternalChoice<QueueCommand>>,
+            tail: Key<InternalChoice<QueueCommand>>,
+            x: A
+        ) -> Unit
+    )
 }
 
-class QueueElementDef<A>(
-    override val initializer: QueueElementSig<A>.(
-        queue: Key<ExternalChoice<QueueCommand>>,
-        tail: Key<InternalChoice<QueueCommand>>,
-        x: A
-    ) -> Unit
-) : QueueElementSig<A>
+class QueueElementDef<A> : QueueElementSig<A> {
+
+    init {
+        def { queue, tail, x ->
+            on(queue).match {
+                case(Enq) { queue ->
+                    from(queue).receive { y, queue ->
+                        tell(tail).dot(Enq) { tail ->
+                            by(tail).send(y) { tail ->
+                                impl(queue, tail, x)
+                            }
+                        }
+                    }
+                }
+                case(Deq) { queue ->
+                    tell(queue).dot(QueueEvent.Some) { queue ->
+                        by(queue).send(x) { queue ->
+                            impl(queue, tail)
+                        }
+                    }
+                }
+            }
+
+        }
+    }
+
+    override fun def(
+        initializer: QueueServerView<A>.(
+            queue: Key<ExternalChoice<QueueCommand>>,
+            tail: Key<InternalChoice<QueueCommand>>,
+            x: A
+        ) -> Unit
+    ) {
+    }
+}
 
 interface EmptyQueueSig<A> : QueueServerView<A> {
-    val initializer: EmptyQueueSig<A>.(
-        queue: Key<ExternalChoice<QueueCommand>>
-    ) -> Unit
+    fun def(
+        initializer: QueueServerView<A>.(
+            queue: Key<ExternalChoice<QueueCommand>>
+        ) -> Unit
+    )
 }
 
 class EmptyQueueDef<A>(
-    override val initializer: EmptyQueueSig<A>.(
-        queue: Key<ExternalChoice<QueueCommand>>
-    ) -> Unit
-) : EmptyQueueSig<A>
+    elementDef: QueueElementDef<A>
+) : EmptyQueueSig<A> {
 
-interface QueueClientSig<A> : QueueClientView<A> {
-    val initializer: QueueClientSig<A>.(
-        client: Key<InternalChoice<QueueCommand>>
-    ) -> Unit
+    init {
+        def { queue ->
+            on(queue).match {
+                case(Enq) { queue ->
+                    from(queue).receive { y, queue ->
+                        impl(queue, elementDef, y)
+                    }
+                }
+                case(Deq) { queue ->
+                    tell(queue).dot(None) { queue ->
+                        close(queue)
+                    }
+                }
+            }
+        }
+    }
+
+    override fun def(
+        initializer: QueueServerView<A>.(
+            queue: Key<ExternalChoice<QueueCommand>>
+        ) -> Unit
+    ) {
+    }
 }
 
-class QueueClientDef<A>(
-    override val initializer: QueueClientSig<A>.(
-        client: Key<InternalChoice<QueueCommand>>
-    ) -> Unit
-) : QueueClientSig<A>
+interface QueueClientSig<A> : QueueClientView<A> {
+    fun def(
+        initializer: QueueClientSig<A>.(
+            queue: Key<InternalChoice<QueueCommand>>
+        ) -> Unit
+    )
+}
+
+class HelloWorldClientDef : QueueClientSig<String> {
+
+    init {
+        def { client ->
+            tell(client).dot(Enq) { client ->
+                by(client).send("hello") { client ->
+                    again(client)
+                }
+            }
+            tell(client).dot(Enq) { client ->
+                by(client).send("world") { client ->
+                    again(client)
+                }
+            }
+        }
+    }
+
+    override fun def(
+        initializer: QueueClientSig<String>.(
+            queue: Key<InternalChoice<QueueCommand>>
+        ) -> Unit
+    ) {
+    }
+}
