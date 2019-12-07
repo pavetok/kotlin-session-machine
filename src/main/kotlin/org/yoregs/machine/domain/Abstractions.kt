@@ -1,6 +1,15 @@
 package org.yoregs.machine.domain
 
+/**
+ * Abstractions Correspondence:
+ * - Session Type -> Viewpoint Interface
+ * - Process Signature -> Signature Interface
+ * - Process Definition -> Scenario Builder Class & Instance
+ * - Process Instance -> Scenario Instance
+ */
+
 interface Endpoint
+
 interface Role
 interface Choice
 interface Variable

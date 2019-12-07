@@ -54,3 +54,7 @@ val clientQueueScenario = ClientScenario<String> { client ->
         }
     }
 }
+
+// TODO:
+//  1. Исполнение
+//  2. Обобщение
