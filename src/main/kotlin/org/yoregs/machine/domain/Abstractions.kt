@@ -1,6 +1,17 @@
 package org.yoregs.machine.domain
 
 /**
+ * Types Correspondence:
+ * - InternalChoice: ⊕ = plus = additive disjunction
+ * - Tensor: ⊗ = times = multiplicative conjunction
+ * - ExternalChoice: & = with = additive conjunction
+ * - Par: ⅋ = par = multiplicative disjunction
+ * - Lollipop: ⊸ = lolly
+ * - Forward: ↔ = identity
+ * - Bang: ! = of course
+ * - WhyNot: ? = why not
+ * - ParallelComposition: | = cut = parallel composition
+ *
  * Abstractions Correspondence:
  * - Session Type -> Viewpoint Interface
  * - Process Signature -> Signature Interface
