@@ -1,54 +1,9 @@
 package org.yoregs.machine.example.queue
 
-import org.yoregs.machine.builder.external
-import org.yoregs.machine.builder.internal
 import org.yoregs.machine.example.queue.QueueCommand.Deq
 import org.yoregs.machine.example.queue.QueueCommand.Enq
 import org.yoregs.machine.example.queue.QueueEvent.None
 import org.yoregs.machine.example.queue.QueueEvent.Some
-
-val QueueServerViewpoint =
-    external(QueueCommand::class) {
-        case(Deq) {
-            internal(QueueEvent::class) {
-                dot(None) {
-                    close()
-                }
-                dot(Some) {
-                    tensor(String::class) {
-                        external(QueueCommand::class) {}
-                    }
-                }
-            }
-        }
-        case(Enq) {
-            lolly(String::class) {
-                external(QueueCommand::class) {}
-            }
-        }
-
-    }
-
-val QueueClientViewpoint =
-    internal(QueueCommand::class) {
-        dot(Deq) {
-            external(QueueEvent::class) {
-                case(None) {
-                    await()
-                }
-                case(Some) {
-                    lolly(String::class) {
-                        internal(QueueCommand::class) {}
-                    }
-                }
-            }
-        }
-        dot(Enq) {
-            tensor(String::class) {
-                internal(QueueCommand::class) {}
-            }
-        }
-    }
 
 val elemQueueScenario = ElemScenario<String> { queue, tail, x ->
     on(queue).match {
