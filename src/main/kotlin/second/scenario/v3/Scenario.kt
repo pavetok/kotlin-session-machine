@@ -1,22 +1,30 @@
-package second.scenario.v2
+package second.scenario.v3
 
-class Scenario() {
+import java.util.function.Function
+
+class Scenario(
+    private val a1: A1,
+    private val a2: Function<C1, C2>,
+    private val a3: A3,
+    private val a4: A4,
+    private val a5: A5
+) {
     fun build(): Scenario {
         return scenario("queue") {
-            waiting<A1> {
+            waiting(a1) {
                 choice("enq") {
-                    receiving<A2> {
-                        waiting<A1>()
+                    receiving<String>(a2) {
+                        waiting(a1)
                     }
                 }
                 choice("deq") {
-                    deciding<A3> {
+                    deciding(a3) {
                         choice("none") {
-                            terminating<A4>()
+                            terminating()
                         }
                         choice("some") {
-                            sending<A5> {
-                                waiting<A1>()
+                            sending<String>(a5) {
+                                waiting(a1)
                             }
                         }
                     }
@@ -26,11 +34,21 @@ class Scenario() {
     }
 }
 
+class C1
+class C2
+class C3
+class C4
+class C5
+
 @Activity("s1")
 class A1
 
 @Activity("s2")
-class A2
+class A2 : Function<C1, C2> {
+    override fun apply(p0: C1): C2 {
+        TODO()
+    }
+}
 
 @Activity("s3")
 class A3
@@ -80,26 +98,29 @@ fun scenario(
     name: String,
     configure: Scenario.() -> Unit
 ): Scenario {
-    val scenario = Scenario()
+    val scenario = Scenario(A1(), A2(), A3(), A4(), A5())
     scenario.configure()
     return scenario
 }
 
-inline fun <reified T : Any> Scenario.deciding(
+fun Scenario.deciding(
+    activity: Any,
     configure: Scenario.() -> Unit
 ): Scenario {
     this.configure()
     return this
 }
 
-inline fun <reified T : Any> Scenario.waiting(
-    configure: Scenario.() -> Unit
+fun Scenario.waiting(
+    activity: Any,
+    configure: Scenario.() -> Scenario
 ): Scenario {
     this.configure()
     return this
 }
 
-inline fun <reified T : Any> Scenario.waiting(
+fun Scenario.waiting(
+    activity: Any
 ): Scenario {
     return this
 }
@@ -113,14 +134,7 @@ fun Scenario.choice(
 }
 
 inline fun <reified T : Any> Scenario.receiving(
-    configure: Scenario.() -> Unit
-): Scenario {
-    this.configure()
-    return this
-}
-
-fun Scenario.sending(
-    action: Function<Unit>,
+    activity: Function<*, *>,
     configure: Scenario.() -> Unit
 ): Scenario {
     this.configure()
@@ -128,12 +142,18 @@ fun Scenario.sending(
 }
 
 inline fun <reified T : Any> Scenario.sending(
+    activity: Any,
     configure: Scenario.() -> Unit
 ): Scenario {
     this.configure()
     return this
 }
 
-inline fun <reified T : Any> Scenario.terminating(
+fun Scenario.terminating(
+    activity: Any
+) {
+}
+
+fun Scenario.terminating(
 ) {
 }
