@@ -1,15 +1,14 @@
 package second.scenario.v4
 
 abstract class Scenario(
-    private val initial: Initiating<*>
+    private val initial: Initiating<*, *>
 )
 
 class QueueServer(
     private val s1: QS1,
     private val s2: QS2,
     private val s3: QS3,
-    private val s4: QS4,
-    private val s5: QS5
+    private val s4: QS4
 ) : Scenario(s1) {
     init {
         their(s1) {
@@ -26,7 +25,7 @@ class QueueServer(
                         }
                     }
                     choice("none") {
-                        terminating(s5)
+                        terminating(Done)
                     }
                 }
             }
@@ -44,7 +43,7 @@ class QueueClient(
         our(s1) {
             choice("enq") {
                 sending(s2) {
-                    terminating()
+                    terminating(Done)
                 }
             }
             choice("deq") {
@@ -56,40 +55,43 @@ class QueueClient(
     }
 }
 
-class QC1 : Initiating<String>, Deciding<String> {
-    override fun invoke(): String {
+class QC1 : Initiating<Unit, String>, Deciding<String> {
+    override fun input(context: Unit): String {
         return "enq"
     }
 
-    override fun invoke(p1: String): String {
-        return p1
+    override fun decide(context: String): String {
+        return context
     }
 }
 
 class QC2(
-    private val send: (String) -> Unit
+    private val consume: (String) -> Unit
 ) : Sending<String, String, Unit> {
-    override fun invoke(p1: String) {
-        send(p1)
+    override fun send(context: String) {
+        consume(context)
     }
 }
 
 class QC3(
-    private val receive: () -> String
+    private val produce: () -> String
 ) : Receiving<Unit, String, String> {
-    override fun invoke(p1: Unit): String {
-        return receive()
+    override fun receive(context: Unit): String {
+        return produce()
     }
 }
 
-class QC4 : Terminating<String>
+class QC4 : Terminating<String, String> {
+    override fun output(context: String): String {
+        return context
+    }
+}
 
 val queueServer = QueueServer(
     QS1(),
     QS2 { "foo" },
     QS3(),
-    QS4 { it },
-    QS5()
+    QS4 { it }
 )
 
 val queueClient = QueueClient(
@@ -100,25 +102,25 @@ val queueClient = QueueClient(
 )
 
 @State("s1")
-class QS1 : Initiating<List<String>>, Waiting {
-    override fun invoke(): List<String> {
+class QS1 : Initiating<Unit, List<String>>, Waiting {
+    override fun input(context: Unit): List<String> {
         return listOf()
     }
 }
 
 @State("s2")
 class QS2(
-    private val receive: () -> String
+    private val produce: () -> String
 ) : Receiving<List<String>, String, List<String>> {
-    override fun invoke(context: List<String>): List<String> {
-        return context.plus(receive())
+    override fun receive(context: List<String>): List<String> {
+        return context.plus(produce())
     }
 }
 
 @State("s3")
 class QS3(
 ) : Deciding<List<String>> {
-    override fun invoke(context: List<String>): String {
+    override fun decide(context: List<String>): String {
         if (context.isEmpty()) {
             return "none"
         }
@@ -128,26 +130,44 @@ class QS3(
 
 @State("s4")
 class QS4(
-    private val send: (String) -> Unit
+    private val consume: (String) -> Unit
 ) : Sending<List<String>, String, List<String>> {
-    override fun invoke(context: List<String>): List<String> {
+    override fun send(context: List<String>): List<String> {
         val head = context.first();
-        send(head)
+        consume(head)
         return context.minus(head)
     }
 }
 
-@State("s5")
-class QS5 : Terminating<Unit>
+object Done : Terminating<Unit, Unit> {
+    override fun output(context: Unit) {
+        // do nothing
+    }
+}
 
 annotation class State(val name: String)
 
-interface Initiating<out Q> : () -> Q
+interface Initiating<in P, out Q> {
+    fun input(context: P): Q
+}
+
 interface Waiting
-interface Receiving<in P, in T, out Q> : (P) -> Q
-interface Deciding<in P> : (P) -> String
-interface Sending<in P, out T, out Q> : (P) -> Q
-interface Terminating<out R>
+
+interface Receiving<in P, in T, out Q> {
+    fun receive(context: P): Q
+}
+
+interface Deciding<in P> {
+    fun decide(context: P): String
+}
+
+interface Sending<in P, out T, out Q> {
+    fun send(context: P): Q
+}
+
+interface Terminating<in P, out Q> {
+    fun output(context: P): Q
+}
 
 fun <S1 : Scenario, S2 : Scenario> S1.invoking(
     scenario: S2,
@@ -204,7 +224,7 @@ fun <T> Scenario.sending(
 }
 
 fun Scenario.terminating(
-    state: Terminating<*>
+    state: Terminating<*, *>
 ) {
 }
 
