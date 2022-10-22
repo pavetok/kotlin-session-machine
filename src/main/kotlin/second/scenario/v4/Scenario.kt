@@ -2,8 +2,8 @@ package second.scenario.v4
 
 import second.scenario.v4.ClientChoice.DEQ
 import second.scenario.v4.ClientChoice.ENQ
-import second.scenario.v4.Outcome.DONE
-import second.scenario.v4.Outcome.RESULT
+import second.scenario.v4.OutcomeChoice.DONE
+import second.scenario.v4.OutcomeChoice.RESULT
 import second.scenario.v4.ServerChoice.NONE
 import second.scenario.v4.ServerChoice.SOME
 
@@ -15,7 +15,9 @@ class QueueServer(
     @State("s3")
     private val s3: QS3,
     @State("s4")
-    private val s4: QS4
+    private val s4: QS4,
+    @State("s5")
+    private val s5: Done
 ) : Scenario(s1) {
     init {
         their(s1) {
@@ -32,7 +34,7 @@ class QueueServer(
                         }
                     }
                     choice(NONE) {
-                        terminating(Done)
+                        terminating(s5)
                     }
                 }
             }
@@ -48,13 +50,17 @@ class QueueClient(
     @State("s3")
     private val s3: QC3,
     @State("s4")
-    private val s4: QC4
+    @Outcome(RESULT)
+    private val s4: QC4,
+    @State("s5")
+    @Outcome(DONE)
+    private val s5: Done
 ) : Scenario(s1) {
     init {
         our(s1) {
             choice(ENQ) {
                 sending(s2) {
-                    terminating(Done)
+                    terminating(s5)
                 }
             }
             choice(DEQ) {
@@ -72,12 +78,12 @@ class QueueInvoker(
     @State("s2")
     private val s2: QI2,
     @State("s3")
-    private val s3: QI3
+    private val s3: Done
 ) : Scenario(s1) {
     init {
         invoking(s1) {
             outcome(DONE) {
-                terminating(Done)
+                terminating(s3)
             }
             outcome(RESULT) {
                 receiving(s2) {
@@ -96,19 +102,18 @@ enum class ClientChoice {
     ENQ, DEQ
 }
 
-enum class Outcome {
+enum class OutcomeChoice {
     DONE, RESULT
 }
 
-class QI2 : Receiving<Unit, String, Unit> {
-    override fun receive(context: Unit) {
-        TODO()
-    }
-}
+annotation class State(val name: String)
+annotation class Outcome(val value: OutcomeChoice)
 
-class QI3 : Terminating<String, String> {
-    override fun output(context: String): String {
-        TODO()
+class QI2(
+    private val produce: () -> String
+) : Receiving<Unit, String, Unit> {
+    override fun receive(context: Unit) {
+        println(produce())
     }
 }
 
@@ -148,14 +153,16 @@ val queueServer = QueueServer(
     QS1(),
     QS2 { "foo" },
     QS3(),
-    QS4 { it }
+    QS4 { it },
+    Done()
 )
 
 val queueClient = QueueClient(
     QC1(),
     QC2 { it },
     QC3 { "foo" },
-    QC4()
+    QC4(),
+    Done()
 )
 
 class QS1 : Initiating<Unit, List<String>>, Waiting {
@@ -192,13 +199,11 @@ class QS4(
     }
 }
 
-object Done : Terminating<Unit, Unit> {
+class Done : Terminating<Unit, Unit> {
     override fun output(context: Unit) {
         // do nothing
     }
 }
-
-annotation class State(val name: String)
 
 interface Initiating<in P, out Q> {
     fun input(context: P): Q
@@ -286,15 +291,6 @@ fun <T> Scenario.sending(
 
 fun Scenario.terminating(
     state: Terminating<*, *>
-) {
-}
-
-fun Scenario.terminating(
-) {
-}
-
-fun Scenario.terminating(
-    name: String
 ) {
 }
 
