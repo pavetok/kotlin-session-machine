@@ -70,9 +70,9 @@ class QueueInvoker(
     @State("s1")
     private val s1: QueueClient,
     @State("s2")
-    private val s2: CS2,
+    private val s2: QI2,
     @State("s3")
-    private val s3: CS3
+    private val s3: QI3
 ) : Scenario(s1) {
     init {
         invoking(s1) {
@@ -100,19 +100,13 @@ enum class Outcome {
     DONE, RESULT
 }
 
-class CS1 : Initiating<Unit, String> {
-    override fun input(context: Unit): String {
-        TODO()
-    }
-}
-
-class CS2 : Receiving<Unit, String, Unit> {
+class QI2 : Receiving<Unit, String, Unit> {
     override fun receive(context: Unit) {
         TODO()
     }
 }
 
-class CS3 : Terminating<String, String> {
+class QI3 : Terminating<String, String> {
     override fun output(context: String): String {
         TODO()
     }
@@ -123,8 +117,8 @@ class QC1 : Initiating<String, String>, Deciding<String> {
         return context
     }
 
-    override fun decide(context: String): String {
-        return context
+    override fun decide(context: String): ClientChoice {
+        return ClientChoice.valueOf(context)
     }
 }
 
@@ -180,11 +174,11 @@ class QS2(
 
 class QS3(
 ) : Deciding<List<String>> {
-    override fun decide(context: List<String>): String {
+    override fun decide(context: List<String>): ServerChoice {
         if (context.isEmpty()) {
-            return "none"
+            return NONE
         }
-        return "some"
+        return SOME
     }
 }
 
@@ -217,7 +211,7 @@ interface Receiving<in P, in T, out Q> {
 }
 
 interface Deciding<in P> {
-    fun decide(context: P): String
+    fun decide(context: P): Enum<*>
 }
 
 interface Sending<in P, out T, out Q> {
@@ -226,14 +220,6 @@ interface Sending<in P, out T, out Q> {
 
 interface Terminating<in P, out Q> {
     fun output(context: P): Q
-}
-
-fun <S1 : Scenario, S2 : Scenario> S1.their(
-    scenario: S2,
-    configure: S1.() -> Unit
-): S1 {
-    this.configure()
-    return this
 }
 
 fun <S1 : Scenario, S2 : Scenario> S1.invoking(
