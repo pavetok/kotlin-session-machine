@@ -6,17 +6,13 @@ import second.scenario.v4.OutcomeChoice.DONE
 import second.scenario.v4.OutcomeChoice.RESULT
 import second.scenario.v4.ServerChoice.NONE
 import second.scenario.v4.ServerChoice.SOME
+import kotlin.reflect.full.*
 
-class QueueServer(
-    @State("s1")
+data class QueueServer(
     private val s1: QS1,
-    @State("s2")
     private val s2: QS2,
-    @State("s3")
     private val s3: QS3,
-    @State("s4")
     private val s4: QS4,
-    @State("s5")
     private val s5: Done
 ) : Scenario(s1) {
     init {
@@ -43,16 +39,11 @@ class QueueServer(
 }
 
 class QueueClient(
-    @State("s1")
     private val s1: QC1,
-    @State("s2")
     private val s2: QC2,
-    @State("s3")
     private val s3: QC3,
-    @State("s4")
     @Outcome(RESULT)
     private val s4: QC4,
-    @State("s5")
     @Outcome(DONE)
     private val s5: Done
 ) : Scenario(s1) {
@@ -117,6 +108,7 @@ class QI2(
     }
 }
 
+@State("s1")
 class QC1 : Initiating<String, String>, Deciding<String> {
     override fun input(context: String): String {
         return context
@@ -127,6 +119,7 @@ class QC1 : Initiating<String, String>, Deciding<String> {
     }
 }
 
+@State("s2")
 class QC2(
     private val consume: (String) -> Unit
 ) : Sending<String, String, Unit> {
@@ -135,6 +128,7 @@ class QC2(
     }
 }
 
+@State("s3")
 class QC3(
     private val produce: () -> String
 ) : Receiving<Unit, String, String> {
@@ -143,19 +137,12 @@ class QC3(
     }
 }
 
+@State("s4")
 class QC4 : Terminating<String, String> {
     override fun output(context: String): String {
         return context
     }
 }
-
-val queueServer = QueueServer(
-    QS1(),
-    QS2 { "foo" },
-    QS3(),
-    QS4 { it },
-    Done()
-)
 
 val queueClient = QueueClient(
     QC1(),
@@ -165,12 +152,14 @@ val queueClient = QueueClient(
     Done()
 )
 
+@State("s1")
 class QS1 : Initiating<Unit, List<String>>, Waiting {
     override fun input(context: Unit): List<String> {
         return listOf()
     }
 }
 
+@State("s2")
 class QS2(
     private val produce: () -> String
 ) : Receiving<List<String>, String, List<String>> {
@@ -179,6 +168,7 @@ class QS2(
     }
 }
 
+@State("s3")
 class QS3(
 ) : Deciding<List<String>> {
     override fun decide(context: List<String>): ServerChoice {
@@ -189,6 +179,7 @@ class QS3(
     }
 }
 
+@State("s4")
 class QS4(
     private val consume: (String) -> Unit
 ) : Sending<List<String>, String, List<String>> {
@@ -199,103 +190,110 @@ class QS4(
     }
 }
 
+@State("done")
 class Done : Terminating<Unit, Unit> {
     override fun output(context: Unit) {
         // do nothing
     }
 }
 
-interface Initiating<in P, out Q> {
+sealed interface Foo
+
+interface Initiating<in P, out Q> : Foo {
     fun input(context: P): Q
 }
 
-interface Waiting
+interface Waiting : Foo
 
-interface Receiving<in P, in T, out Q> {
+interface Receiving<in P, in T, out Q> : Foo {
     fun receive(context: P): Q
 }
 
-interface Deciding<in P> {
+interface Deciding<in P> : Foo {
     fun decide(context: P): Enum<*>
 }
 
-interface Sending<in P, out T, out Q> {
+interface Sending<in P, out T, out Q> : Foo {
     fun send(context: P): Q
 }
 
-interface Terminating<in P, out Q> {
+interface Terminating<in P, out Q> : Foo {
     fun output(context: P): Q
 }
 
 fun <S1 : Scenario, S2 : Scenario> S1.invoking(
     scenario: S2,
     configure: S1.() -> Unit
-): S1 {
-    this.configure()
-    return this
+) {
+    this.apply(configure)
 }
 
 fun Scenario.our(
     state: Deciding<*>,
     configure: Scenario.() -> Unit
-): Scenario {
-    this.configure()
-    return this
+) {
+    val stateName = state::class.findAnnotation<State>()?.name ?: throw IllegalArgumentException()
+    this.states[stateName] = state
+    this.apply(configure)
 }
 
 fun Scenario.their(
     state: Waiting,
-    configure: Scenario.() -> Scenario
-): Scenario {
-    this.configure()
-    return this
+    configure: Scenario.() -> Unit
+) {
+    val stateName = state::class.findAnnotation<State>()?.name ?: throw IllegalArgumentException()
+    this.states[stateName] = state
+    this.apply(configure)
 }
 
 fun Scenario.again(
     state: Waiting
-): Scenario {
-    return this
+) {
 }
 
 fun Scenario.choice(
     name: Enum<*>,
     configure: Scenario.() -> Unit
-): Scenario {
-    this.configure()
-    return this
+) {
+    this.apply(configure)
 }
 
 fun Scenario.outcome(
     name: Enum<*>,
     configure: Scenario.() -> Unit
-): Scenario {
-    this.configure()
-    return this
+) {
+    this.apply(configure)
 }
 
 fun <M> Scenario.receiving(
     state: Receiving<*, M, *>,
     configure: Scenario.() -> Unit
-): Scenario {
-    this.configure()
-    return this
+) {
+    val stateName = state::class.findAnnotation<State>()?.name ?: throw IllegalArgumentException()
+    this.states[stateName] = state
+    this.apply(configure)
 }
 
 fun <T> Scenario.sending(
     state: Sending<*, T, *>,
     configure: Scenario.() -> Unit
-): Scenario {
-    this.configure()
-    return this
+) {
+    val stateName = state::class.findAnnotation<State>()?.name ?: throw IllegalArgumentException()
+    this.states[stateName] = state
+    this.apply(configure)
 }
 
 fun Scenario.terminating(
     state: Terminating<*, *>
 ) {
+    val stateName = state::class.findAnnotation<State>()?.name ?: throw IllegalArgumentException()
+    this.states[stateName] = state
 }
 
 abstract class Scenario(
     private val initial: Initiating<*, *>
 ) {
+    val states: MutableMap<String, Foo> = mutableMapOf()
+
     constructor(scenario: Scenario) : this(scenario.initial)
 }

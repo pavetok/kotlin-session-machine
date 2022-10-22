@@ -15,6 +15,7 @@ class Scenario1(
                 }
 
                 is Error2<*> -> send(Context4(), this::s3)
+                else -> {}
             }
         }
     }
