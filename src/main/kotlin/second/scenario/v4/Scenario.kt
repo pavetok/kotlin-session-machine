@@ -1,32 +1,37 @@
 package second.scenario.v4
 
-abstract class Scenario(
-    private val initial: Initiating<*, *>
-) {
-    constructor(scenario: Scenario) : this(scenario.initial)
-}
+import second.scenario.v4.ClientChoice.DEQ
+import second.scenario.v4.ClientChoice.ENQ
+import second.scenario.v4.Outcome.DONE
+import second.scenario.v4.Outcome.RESULT
+import second.scenario.v4.ServerChoice.NONE
+import second.scenario.v4.ServerChoice.SOME
 
 class QueueServer(
+    @State("s1")
     private val s1: QS1,
+    @State("s2")
     private val s2: QS2,
+    @State("s3")
     private val s3: QS3,
+    @State("s4")
     private val s4: QS4
 ) : Scenario(s1) {
     init {
         their(s1) {
-            choice("enq") {
+            choice(ENQ) {
                 receiving(s2) {
                     again(s1)
                 }
             }
-            choice("deq") {
+            choice(DEQ) {
                 our(s3) {
-                    choice("some") {
+                    choice(SOME) {
                         sending(s4) {
                             again(s1)
                         }
                     }
-                    choice("none") {
+                    choice(NONE) {
                         terminating(Done)
                     }
                 }
@@ -36,19 +41,23 @@ class QueueServer(
 }
 
 class QueueClient(
+    @State("s1")
     private val s1: QC1,
+    @State("s2")
     private val s2: QC2,
+    @State("s3")
     private val s3: QC3,
+    @State("s4")
     private val s4: QC4
 ) : Scenario(s1) {
     init {
         our(s1) {
-            choice("enq") {
+            choice(ENQ) {
                 sending(s2) {
                     terminating(Done)
                 }
             }
-            choice("deq") {
+            choice(DEQ) {
                 receiving(s3) {
                     terminating(s4)
                 }
@@ -58,22 +67,37 @@ class QueueClient(
 }
 
 class QueueInvoker(
+    @State("s1")
     private val s1: QueueClient,
+    @State("s2")
     private val s2: CS2,
+    @State("s3")
     private val s3: CS3
 ) : Scenario(s1) {
     init {
         invoking(s1) {
-            outcome("done") {
+            outcome(DONE) {
                 terminating(Done)
             }
-            outcome("result") {
+            outcome(RESULT) {
                 receiving(s2) {
                     terminating(s3)
                 }
             }
         }
     }
+}
+
+enum class ServerChoice {
+    SOME, NONE
+}
+
+enum class ClientChoice {
+    ENQ, DEQ
+}
+
+enum class Outcome {
+    DONE, RESULT
 }
 
 class CS1 : Initiating<Unit, String> {
@@ -94,7 +118,6 @@ class CS3 : Terminating<String, String> {
     }
 }
 
-@State("s1")
 class QC1 : Initiating<String, String>, Deciding<String> {
     override fun input(context: String): String {
         return context
@@ -105,7 +128,6 @@ class QC1 : Initiating<String, String>, Deciding<String> {
     }
 }
 
-@State("s2")
 class QC2(
     private val consume: (String) -> Unit
 ) : Sending<String, String, Unit> {
@@ -114,7 +136,6 @@ class QC2(
     }
 }
 
-@State("s3")
 class QC3(
     private val produce: () -> String
 ) : Receiving<Unit, String, String> {
@@ -123,7 +144,6 @@ class QC3(
     }
 }
 
-@State("s4")
 class QC4 : Terminating<String, String> {
     override fun output(context: String): String {
         return context
@@ -144,14 +164,12 @@ val queueClient = QueueClient(
     QC4()
 )
 
-@State("s1")
 class QS1 : Initiating<Unit, List<String>>, Waiting {
     override fun input(context: Unit): List<String> {
         return listOf()
     }
 }
 
-@State("s2")
 class QS2(
     private val produce: () -> String
 ) : Receiving<List<String>, String, List<String>> {
@@ -160,7 +178,6 @@ class QS2(
     }
 }
 
-@State("s3")
 class QS3(
 ) : Deciding<List<String>> {
     override fun decide(context: List<String>): String {
@@ -171,7 +188,6 @@ class QS3(
     }
 }
 
-@State("s4")
 class QS4(
     private val consume: (String) -> Unit
 ) : Sending<List<String>, String, List<String>> {
@@ -251,7 +267,7 @@ fun Scenario.again(
 }
 
 fun Scenario.choice(
-    name: String,
+    name: Enum<*>,
     configure: Scenario.() -> Unit
 ): Scenario {
     this.configure()
@@ -259,7 +275,7 @@ fun Scenario.choice(
 }
 
 fun Scenario.outcome(
-    name: String,
+    name: Enum<*>,
     configure: Scenario.() -> Unit
 ): Scenario {
     this.configure()
@@ -296,11 +312,8 @@ fun Scenario.terminating(
 ) {
 }
 
-class C1
-class C2
-class C3
-class C4
-class C5
-
-class M1
-class M2
+abstract class Scenario(
+    private val initial: Initiating<*, *>
+) {
+    constructor(scenario: Scenario) : this(scenario.initial)
+}
