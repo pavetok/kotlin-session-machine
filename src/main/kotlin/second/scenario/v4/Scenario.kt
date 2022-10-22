@@ -2,7 +2,9 @@ package second.scenario.v4
 
 abstract class Scenario(
     private val initial: Initiating<*, *>
-)
+) {
+    constructor(scenario: Scenario) : this(scenario.initial)
+}
 
 class QueueServer(
     private val s1: QS1,
@@ -55,9 +57,47 @@ class QueueClient(
     }
 }
 
-class QC1 : Initiating<Unit, String>, Deciding<String> {
+class QueueInvoker(
+    private val s1: QueueClient,
+    private val s2: CS2,
+    private val s3: CS3
+) : Scenario(s1) {
+    init {
+        invoking(s1) {
+            outcome("done") {
+                terminating(Done)
+            }
+            outcome("result") {
+                receiving(s2) {
+                    terminating(s3)
+                }
+            }
+        }
+    }
+}
+
+class CS1 : Initiating<Unit, String> {
     override fun input(context: Unit): String {
-        return "enq"
+        TODO()
+    }
+}
+
+class CS2 : Receiving<Unit, String, Unit> {
+    override fun receive(context: Unit) {
+        TODO()
+    }
+}
+
+class CS3 : Terminating<String, String> {
+    override fun output(context: String): String {
+        TODO()
+    }
+}
+
+@State("s1")
+class QC1 : Initiating<String, String>, Deciding<String> {
+    override fun input(context: String): String {
+        return context
     }
 
     override fun decide(context: String): String {
@@ -65,6 +105,7 @@ class QC1 : Initiating<Unit, String>, Deciding<String> {
     }
 }
 
+@State("s2")
 class QC2(
     private val consume: (String) -> Unit
 ) : Sending<String, String, Unit> {
@@ -73,6 +114,7 @@ class QC2(
     }
 }
 
+@State("s3")
 class QC3(
     private val produce: () -> String
 ) : Receiving<Unit, String, String> {
@@ -81,6 +123,7 @@ class QC3(
     }
 }
 
+@State("s4")
 class QC4 : Terminating<String, String> {
     override fun output(context: String): String {
         return context
@@ -169,6 +212,14 @@ interface Terminating<in P, out Q> {
     fun output(context: P): Q
 }
 
+fun <S1 : Scenario, S2 : Scenario> S1.their(
+    scenario: S2,
+    configure: S1.() -> Unit
+): S1 {
+    this.configure()
+    return this
+}
+
 fun <S1 : Scenario, S2 : Scenario> S1.invoking(
     scenario: S2,
     configure: S1.() -> Unit
@@ -200,6 +251,14 @@ fun Scenario.again(
 }
 
 fun Scenario.choice(
+    name: String,
+    configure: Scenario.() -> Unit
+): Scenario {
+    this.configure()
+    return this
+}
+
+fun Scenario.outcome(
     name: String,
     configure: Scenario.() -> Unit
 ): Scenario {

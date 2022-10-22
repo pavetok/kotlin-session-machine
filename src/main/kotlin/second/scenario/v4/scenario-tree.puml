@@ -1,0 +1,91 @@
+@startuml
+left to right direction
+
+object Waiting
+object Receiving
+object Deciding
+object Sending
+object Terminating
+
+map "<Map>" as States {
+ s1 *--> Waiting
+ s2 *--> Receiving
+ s3 *--> Deciding
+ s4 *--> Sending
+ done *--> Terminating
+}
+
+map "<Table>" as Transitions {
+ s1, ENQ => s2
+ s1, DEQ => s3
+ s2 => s1
+ s3, SOME => s4
+ s4 => s1
+ s3, NONE => done
+}
+
+map QueueServer {
+  initial => s1
+  states *--> States
+  transitions *--> Transitions
+}
+@enduml
+
+@startuml
+left to right direction
+
+object Deciding
+object Sending
+object "Terminating" as t1
+object "Terminating" as t2
+object Receiving
+
+map "<Map>" as States {
+    s1 *--> Deciding
+    s2 *--> Sending
+    done *--> t1
+    s3 *--> Receiving
+    s4 *--> t2
+}
+
+map "<Table>" as Transitions {
+    s1, ENQ => s2
+    s2 => s1
+    s1, DEQ => s3
+    s3 => s4
+}
+
+map QueueClient {
+  initial => s1
+  states *--> States
+  transitions *--> Transitions
+}
+@enduml
+
+@startuml
+left to right direction
+
+object Invoking
+object "Terminating" as t1
+object "Terminating" as t2
+object Receiving
+
+map "<Map>" as States {
+    s1 *--> Invoking
+    done *--> t1
+    s2 *--> Receiving
+    s3 *--> t2
+}
+
+map "<Table>" as Transitions {
+    s1, DONE => done
+    s1, RESULT => s2
+    s2 => s3
+}
+
+map QueueInvoker {
+  initial => s1
+  states *--> States
+  transitions *--> Transitions
+}
+@enduml
