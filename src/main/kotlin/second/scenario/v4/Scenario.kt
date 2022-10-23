@@ -71,6 +71,29 @@ data class QueueServer2(
             }
         }
     }
+
+    init {
+        val queue = ArrayDeque<Spec>()
+        queue.addFirst(spec)
+
+        while (queue.isNotEmpty()) {
+            val spec1 = queue.removeLast()
+            for (spec2 in spec1.children) {
+                queue.addFirst(spec2)
+                when (spec1) {
+                    is State -> when (spec2) {
+                        is State -> transitions.add(Transition1(spec1.name, spec2.name))
+                        is Event -> {
+                            val spec3 = spec2.children.first() as State
+                            transitions.add(Transition2(spec1.name, spec2.name, spec3.name))
+                        }
+                    }
+
+                    is Event -> {}
+                }
+            }
+        }
+    }
 }
 
 @Name("qc")
@@ -380,8 +403,8 @@ fun Scenario.again(
 fun Spec.again2(
     state: Activity
 ) {
-    val againState = state::class.findAnnotation<Name>()!!.value
-    children.add(State(againState))
+    val name = state::class.findAnnotation<Name>()!!.value
+    children.add(State(name))
 }
 
 fun Scenario.terminating(
@@ -395,13 +418,14 @@ fun Scenario.terminating(
 fun Spec.terminating2(
     state: Terminating<*, *>
 ) {
-    val terminalState = state::class.findAnnotation<Name>()!!.value
-    children.add(State(terminalState))
+    val name = state::class.findAnnotation<Name>()!!.value
+    children.add(State(name))
 }
 
 abstract class Scenario(
 ) {
     val states: MutableMap<String, Activity> = mutableMapOf()
+    val transitions: MutableList<Transition> = mutableListOf()
     lateinit var spec: Spec
 
     constructor(scenario: Scenario) : this()
@@ -411,5 +435,9 @@ sealed class Spec {
     val children: MutableList<Spec> = mutableListOf()
 }
 
-class State(val name: String) : Spec()
-class Event(val name: Enum<*>) : Spec()
+data class State(val name: String) : Spec()
+data class Event(val name: Enum<*>) : Spec()
+
+sealed class Transition
+data class Transition1(val from: String, val to: String) : Transition()
+data class Transition2(val from: String, val on: Enum<*>, val to: String) : Transition()
