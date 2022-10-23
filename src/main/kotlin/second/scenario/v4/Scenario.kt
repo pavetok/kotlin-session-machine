@@ -10,7 +10,6 @@ import kotlin.reflect.full.findAnnotation
 
 @Name("qs")
 data class QueueServer(
-    private val s0: QS0,
     private val s1: QS1,
     private val s2: QS2,
     private val s3: QS3,
@@ -18,23 +17,21 @@ data class QueueServer(
     private val s5: Done
 ) : Scenario() {
     init {
-        constructing(s0) {
-            their(s1) {
-                choice(ENQ) {
-                    receiving(s2) {
-                        again(s1)
-                    }
+        their(s1) {
+            choice(ENQ) {
+                receiving(s2) {
+                    again(s1)
                 }
-                choice(DEQ) {
-                    our(s3) {
-                        choice(SOME) {
-                            sending(s4) {
-                                again(s1)
-                            }
+            }
+            choice(DEQ) {
+                our(s3) {
+                    choice(SOME) {
+                        sending(s4) {
+                            again(s1)
                         }
-                        choice(NONE) {
-                            terminating(s5)
-                        }
+                    }
+                    choice(NONE) {
+                        terminating(s5)
                     }
                 }
             }
@@ -48,28 +45,25 @@ data class QueueServer(
 
 @Name("qc")
 data class QueueClient(
-    private val s0: QC0,
     private val s1: QC1,
     private val s2: QC2,
     private val s3: QC3,
     private val s4: QC4,
-    private val s5: Done
+    private val s5: QC5
 ) : Scenario() {
     init {
-        constructing(s0) {
-            our(s1) {
-                choice(ENQ) {
-                    sending(s2) {
-                        terminating(s5) {
-                            DONE
-                        }
+        incoming(s1) {
+            choice(ENQ) {
+                sending(s2) {
+                    outcoming(s5) {
+                        DONE
                     }
                 }
-                choice(DEQ) {
-                    receiving(s3) {
-                        terminating(s4) {
-                            RESULT
-                        }
+            }
+            choice(DEQ) {
+                receiving(s3) {
+                    outputting(s4) {
+                        RESULT
                     }
                 }
             }
@@ -83,21 +77,18 @@ data class QueueClient(
 
 @Name("qi")
 data class QueueInvoker(
-    private val s0: QI0,
     private val s1: QueueClient,
     private val s2: QI2,
     private val s3: Done
 ) : Scenario() {
     init {
-        constructing(s0) {
-            invoking(s1) {
-                outcome(DONE) {
+        invoking(s1) {
+            outcome(DONE) {
+                terminating(s3)
+            }
+            outcome(RESULT) {
+                receiving(s2) {
                     terminating(s3)
-                }
-                outcome(RESULT) {
-                    receiving(s2) {
-                        terminating(s3)
-                    }
                 }
             }
         }
@@ -124,9 +115,9 @@ annotation class Name(val value: String)
 
 @Name("s0")
 class QI0(
-) : Initiating<Unit, Unit> {
-    override fun input(context: Unit) {
-        TODO()
+) : Initiating<ClientChoice> {
+    override fun initiate(): ClientChoice {
+        return ENQ
     }
 }
 
@@ -139,24 +130,19 @@ class QI2(
     }
 }
 
-@Name("s0")
-class QC0 : Initiating<String, String> {
-    override fun input(context: String): String {
-        return context
-    }
-}
-
 @Name("s1")
-class QC1 : Deciding<String> {
-    override fun decide(context: String): ClientChoice {
-        return ClientChoice.valueOf(context)
-    }
-}
+class QC1 : Incoming<ClientChoice>
 
 @Name("s2")
 class QC2(
+    private val produce: () -> String,
     private val consume: (String) -> Unit
-) : Sending<String, String, Unit> {
+) : Inputting<Unit, String, String>,
+    Sending<String, String, Unit> {
+    override fun input(context: Unit): String {
+        return produce()
+    }
+
     override fun send(context: String) {
         consume(context)
     }
@@ -172,34 +158,46 @@ class QC3(
 }
 
 @Name("s4")
-class QC4 : Terminating<String, String> {
+class QC4 : Outcoming<OutcomeChoice>, Outputting<String, String> {
     override fun output(context: String): String {
         return context
     }
 }
 
+@Name("s5")
+class QC5 : Outcoming<OutcomeChoice>
+
 @Name("s0")
-class QS0 : Initiating<Unit, List<String>> {
-    override fun input(context: Unit): List<String> {
+class QS0 : Initiating<List<String>> {
+    override fun initiate(): List<String> {
         return listOf()
     }
 }
 
 @Name("s1")
-class QS1 : Waiting
+class QS1 : Incoming<ClientChoice>, Waiting<ClientChoice>, Initiating<List<String>> {
+    override fun initiate(): List<String> {
+        return listOf()
+    }
+}
 
 @Name("s2")
 class QS2(
     private val produce: () -> String
-) : Receiving<List<String>, String, List<String>> {
+) : Receiving<List<String>, String, List<String>>,
+    Inputting<List<String>, String, List<String>> {
     override fun receive(context: List<String>): List<String> {
+        return context.plus(produce())
+    }
+
+    override fun input(context: List<String>): List<String> {
         return context.plus(produce())
     }
 }
 
 @Name("s3")
 class QS3(
-) : Deciding<List<String>> {
+) : Deciding<List<String>, ServerChoice> {
     override fun decide(context: List<String>): ServerChoice {
         if (context.isEmpty()) {
             return NONE
@@ -220,37 +218,58 @@ class QS4(
 }
 
 @Name("done")
-class Done : Terminating<Unit, Unit> {
-    override fun output(context: Unit) {
+class Done : Terminating<Unit> {
+    override fun terminate(context: Unit) {
         // do nothing
     }
 }
 
 sealed interface Activity
 
-interface Initiating<in P, out Q> : Activity {
+interface Initiating<out T> : Activity {
+    fun initiate(): T
+}
+
+interface Incoming<L : Enum<L>> : Activity
+
+interface Inputting<in P, in M, out Q> : Activity {
     fun input(context: P): Q
 }
 
-interface Waiting : Activity
+interface Waiting<L : Enum<L>> : Activity
 
-interface Receiving<in P, in T, out Q> : Activity {
+interface Receiving<in P, in M, out Q> : Activity {
     fun receive(context: P): Q
 }
 
-interface Deciding<in P> : Activity {
-    fun decide(context: P): Enum<*>
+interface Deciding<in P, out L : Enum<out L>> : Activity {
+    fun decide(context: P): L
 }
 
 interface Sending<in P, out T, out Q> : Activity {
     fun send(context: P): Q
 }
 
-interface Terminating<in P, out Q> : Activity {
+interface Terminating<in T> : Activity {
+    fun terminate(context: T)
+}
+
+interface Outcoming<L : Enum<L>> : Activity
+
+interface Outputting<in P, out Q> : Activity {
     fun output(context: P): Q
 }
 
 object Noop : Activity
+
+fun Scenario.invoking(
+    scenario: Activity,
+    configure: Spec.() -> Unit
+) {
+    val name = scenario::class.findAnnotation<Name>()!!.value
+    spec = State1(name, scenario)
+    spec.configure()
+}
 
 fun Spec.invoking(
     scenario: Activity,
@@ -262,8 +281,26 @@ fun Spec.invoking(
     children.add(node)
 }
 
-fun Spec.our(
-    state: Deciding<*>,
+fun Scenario.our(
+    state: Activity,
+    configure: Spec.() -> Unit
+) {
+    val name = state::class.findAnnotation<Name>()!!.value
+    spec = State1(name, state)
+    spec.configure()
+}
+
+fun <L : Enum<L>> Scenario.incoming(
+    state: Incoming<L>,
+    configure: Spec.() -> Unit
+) {
+    val name = state::class.findAnnotation<Name>()!!.value
+    spec = State1(name, state)
+    spec.configure()
+}
+
+fun <L : Enum<L>> Spec.our(
+    state: Deciding<*, L>,
     configure: Spec.() -> Unit
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
@@ -272,8 +309,17 @@ fun Spec.our(
     children.add(node)
 }
 
-fun Scenario.constructing(
-    state: Initiating<*, *>,
+fun Scenario.initiating(
+    state: Initiating<*>,
+    configure: Spec.() -> Unit
+) {
+    val name = state::class.findAnnotation<Name>()!!.value
+    spec = State1(name, state)
+    spec.configure()
+}
+
+fun Scenario.their(
+    state: Activity,
     configure: Spec.() -> Unit
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
@@ -282,7 +328,7 @@ fun Scenario.constructing(
 }
 
 fun Spec.their(
-    state: Waiting,
+    state: Activity,
     configure: Spec.() -> Unit
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
@@ -291,8 +337,8 @@ fun Spec.their(
     children.add(node)
 }
 
-fun Spec.choice(
-    label: Enum<*>,
+fun <L : Enum<L>> Spec.choice(
+    label: L,
     configure: Spec.() -> Unit
 ) {
     val event = Event(label)
@@ -300,8 +346,8 @@ fun Spec.choice(
     children.add(event)
 }
 
-fun Spec.outcome(
-    label: Enum<*>,
+fun <L : Enum<L>> Spec.outcome(
+    label: L,
     configure: Spec.() -> Unit
 ) {
     val event = Event(label)
@@ -309,8 +355,8 @@ fun Spec.outcome(
     children.add(event)
 }
 
-fun <M> Spec.receiving(
-    state: Receiving<*, M, *>,
+fun <P, M, Q> Spec.receiving(
+    state: Receiving<P, M, Q>,
     configure: Spec.() -> Unit
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
@@ -319,8 +365,8 @@ fun <M> Spec.receiving(
     children.add(node)
 }
 
-fun <T> Spec.sending(
-    state: Sending<*, T, *>,
+fun <P, M, Q> Spec.sending(
+    state: Sending<P, M, Q>,
     configure: Spec.() -> Unit
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
@@ -336,16 +382,24 @@ fun Spec.again(
     children.add(State1(name, Noop))
 }
 
-fun Spec.terminating(
-    state: Terminating<*, *>
+fun <T> Spec.terminating(
+    state: Terminating<T>
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
     children.add(State1(name, state))
 }
 
-fun Spec.terminating(
-    state: Terminating<*, *>,
-    outcome: () -> Enum<*>
+fun <L : Enum<L>> Spec.outcoming(
+    state: Outcoming<L>,
+    outcome: () -> L
+) {
+    val name = state::class.findAnnotation<Name>()!!.value
+    children.add(State2(name, state, outcome()))
+}
+
+fun <L : Enum<L>, P, Q> Spec.outputting(
+    state: Outputting<P, Q>,
+    outcome: () -> L
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
     children.add(State2(name, state, outcome()))
