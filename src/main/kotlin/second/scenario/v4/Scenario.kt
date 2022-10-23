@@ -10,37 +10,6 @@ import kotlin.reflect.full.findAnnotation
 
 @Name("qs")
 data class QueueServer(
-    private val s1: QS1,
-    private val s2: QS2,
-    private val s3: QS3,
-    private val s4: QS4,
-    private val s5: Done
-) : Scenario() {
-    init {
-        their(s1) {
-            choice(ENQ) {
-                receiving(s2) {
-                    again(s1)
-                }
-            }
-            choice(DEQ) {
-                our(s3) {
-                    choice(SOME) {
-                        sending(s4) {
-                            again(s1)
-                        }
-                    }
-                    choice(NONE) {
-                        terminating(s5)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Name("qs")
-data class QueueServer2(
     private val s0: QS0,
     private val s1: QS1,
     private val s2: QS2,
@@ -49,22 +18,22 @@ data class QueueServer2(
     private val s5: Done
 ) : Scenario() {
     init {
-        initialing(s0) {
-            their2(s1) {
-                choice2(ENQ) {
-                    receiving2(s2) {
-                        again2(s1)
+        constructing(s0) {
+            their(s1) {
+                choice(ENQ) {
+                    receiving(s2) {
+                        again(s1)
                     }
                 }
-                choice2(DEQ) {
-                    our2(s3) {
-                        choice2(SOME) {
-                            sending2(s4) {
-                                again2(s1)
+                choice(DEQ) {
+                    our(s3) {
+                        choice(SOME) {
+                            sending(s4) {
+                                again(s1)
                             }
                         }
-                        choice2(NONE) {
-                            terminating2(s5)
+                        choice(NONE) {
+                            terminating(s5)
                         }
                     }
                 }
@@ -73,79 +42,69 @@ data class QueueServer2(
     }
 
     init {
-        val queue = ArrayDeque<Spec>()
-        queue.addFirst(spec)
-
-        while (queue.isNotEmpty()) {
-            val spec1 = queue.removeLast()
-            when (spec1) {
-                is Active -> states[spec1.name] = spec1.activity
-                else -> {}
-            }
-            for (spec2 in spec1.children) {
-                when (spec1) {
-                    is State -> when (spec2) {
-                        is State -> {
-                            transitions.add(Transition1(spec1.name, spec2.name))
-                        }
-
-                        is Event -> {
-                            val spec3 = spec2.children.single() as State
-                            transitions.add(Transition2(spec1.name, spec2.label, spec3.name))
-                        }
-                    }
-
-                    else -> {}
-                }
-                queue.addFirst(spec2)
-            }
-        }
+        build()
     }
 }
 
 @Name("qc")
-class QueueClient(
+data class QueueClient(
+    private val s0: QC0,
     private val s1: QC1,
     private val s2: QC2,
     private val s3: QC3,
-    @Outcome(RESULT)
     private val s4: QC4,
-    @Outcome(DONE)
     private val s5: Done
 ) : Scenario() {
     init {
-        our(s1) {
-            choice(ENQ) {
-                sending(s2) {
-                    terminating(s5)
+        constructing(s0) {
+            our(s1) {
+                choice(ENQ) {
+                    sending(s2) {
+                        terminating(s5) {
+                            DONE
+                        }
+                    }
                 }
-            }
-            choice(DEQ) {
-                receiving(s3) {
-                    terminating(s4)
+                choice(DEQ) {
+                    receiving(s3) {
+                        terminating(s4) {
+                            RESULT
+                        }
+                    }
                 }
             }
         }
     }
+
+    init {
+        build()
+    }
 }
 
 @Name("qi")
-class QueueInvoker(
+data class QueueInvoker(
+    private val s0: QI0,
     private val s1: QueueClient,
     private val s2: QI2,
     private val s3: Done
-) : Scenario(s1) {
+) : Scenario() {
     init {
-        invoking(s1) {
-            outcome(DONE) {
-                terminating(s3)
-            }
-            outcome(RESULT) {
-                receiving(s2) {
+        constructing(s0) {
+            invoking(s1) {
+                outcome(DONE) {
                     terminating(s3)
+                }
+                outcome(RESULT) {
+                    receiving(s2) {
+                        terminating(s3)
+                    }
                 }
             }
         }
+    }
+
+    init {
+        build()
     }
 }
 
@@ -162,7 +121,14 @@ enum class OutcomeChoice {
 }
 
 annotation class Name(val value: String)
-annotation class Outcome(val value: OutcomeChoice)
+
+@Name("s0")
+class QI0(
+) : Initiating<Unit, Unit> {
+    override fun input(context: Unit) {
+        TODO()
+    }
+}
 
 @Name("s2")
 class QI2(
@@ -173,12 +139,15 @@ class QI2(
     }
 }
 
-@Name("s1")
-class QC1 : Initiating<String, String>, Deciding<String> {
+@Name("s0")
+class QC0 : Initiating<String, String> {
     override fun input(context: String): String {
         return context
     }
+}
 
+@Name("s1")
+class QC1 : Deciding<String> {
     override fun decide(context: String): ClientChoice {
         return ClientChoice.valueOf(context)
     }
@@ -281,71 +250,48 @@ interface Terminating<in P, out Q> : Activity {
     fun output(context: P): Q
 }
 
-fun <S1 : Scenario, S2 : Scenario> S1.invoking(
-    scenario: S2,
-    configure: S1.() -> Unit
-) {
-    this.apply(configure)
-}
+object Noop : Activity
 
-fun Scenario.our(
-    state: Deciding<*>,
-    configure: Scenario.() -> Unit
-): String {
-    val fromState = state::class.findAnnotation<Name>()!!.value
-    this.states[fromState] = state
-    this.configure()
-    return fromState
-}
-
-fun Spec.our2(
-    state: Deciding<*>,
+fun Spec.invoking(
+    scenario: Activity,
     configure: Spec.() -> Unit
 ) {
-    val name = state::class.findAnnotation<Name>()!!.value
-    val node = Active(name, state)
+    val name = scenario::class.findAnnotation<Name>()!!.value
+    val node = State1(name, scenario)
     node.configure()
     children.add(node)
 }
 
-fun Scenario.their(
-    state: Waiting,
-    configure: Scenario.() -> Unit
-): String {
-    val fromState = state::class.findAnnotation<Name>()!!.value
-    this.states[fromState] = state
-    this.configure()
-    return fromState
+fun Spec.our(
+    state: Deciding<*>,
+    configure: Spec.() -> Unit
+) {
+    val name = state::class.findAnnotation<Name>()!!.value
+    val node = State1(name, state)
+    node.configure()
+    children.add(node)
 }
 
-fun Scenario.initialing(
+fun Scenario.constructing(
     state: Initiating<*, *>,
     configure: Spec.() -> Unit
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
-    spec = Active(name, state)
+    spec = State1(name, state)
     spec.configure()
 }
 
-fun Spec.their2(
+fun Spec.their(
     state: Waiting,
     configure: Spec.() -> Unit
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
-    val node = Active(name, state)
+    val node = State1(name, state)
     node.configure()
     children.add(node)
 }
 
-fun Scenario.choice(
-    label: Enum<*>,
-    configure: Scenario.() -> String
-) {
-    val fromState = "???"
-    val toState = this.configure()
-}
-
-fun Spec.choice2(
+fun Spec.choice(
     label: Enum<*>,
     configure: Spec.() -> Unit
 ) {
@@ -354,97 +300,72 @@ fun Spec.choice2(
     children.add(event)
 }
 
-fun Scenario.outcome(
+fun Spec.outcome(
     label: Enum<*>,
-    configure: Scenario.() -> Unit
+    configure: Spec.() -> Unit
 ) {
-    this.configure()
+    val event = Event(label)
+    event.configure()
+    children.add(event)
 }
 
-fun <M> Scenario.receiving(
-    state: Receiving<*, M, *>,
-    configure: Scenario.() -> String
-): String {
-    val fromState = state::class.findAnnotation<Name>()!!.value
-    this.states[fromState] = state
-    val toState = this.configure()
-    return fromState
-}
-
-fun <M> Spec.receiving2(
+fun <M> Spec.receiving(
     state: Receiving<*, M, *>,
     configure: Spec.() -> Unit
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
-    val node = Active(name, state)
+    val node = State1(name, state)
     node.configure()
     children.add(node)
 }
 
-fun <T> Scenario.sending(
-    state: Sending<*, T, *>,
-    configure: Scenario.() -> String
-): String {
-    val fromState = state::class.findAnnotation<Name>()!!.value
-    this.states[fromState] = state
-    val toState = this.configure()
-    return fromState
-}
-
-fun <T> Spec.sending2(
+fun <T> Spec.sending(
     state: Sending<*, T, *>,
     configure: Spec.() -> Unit
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
-    val node = Active(name, state)
+    val node = State1(name, state)
     node.configure()
     children.add(node)
 }
 
-fun Scenario.again(
-    state: Activity
-): String {
-    return state::class.findAnnotation<Name>()!!.value
-}
-
-fun Spec.again2(
+fun Spec.again(
     state: Activity
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
-    children.add(Passive(name))
+    children.add(State1(name, Noop))
 }
 
-fun Scenario.terminating(
-    state: Terminating<*, *>
-): String {
-    val endState = state::class.findAnnotation<Name>()!!.value
-    this.states[endState] = state
-    return endState
-}
-
-fun Spec.terminating2(
+fun Spec.terminating(
     state: Terminating<*, *>
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
-    children.add(Passive(name))
+    children.add(State1(name, state))
+}
+
+fun Spec.terminating(
+    state: Terminating<*, *>,
+    outcome: () -> Enum<*>
+) {
+    val name = state::class.findAnnotation<Name>()!!.value
+    children.add(State2(name, state, outcome()))
 }
 
 abstract class Scenario(
-) {
+) : Activity {
     val states: MutableMap<String, Activity> = mutableMapOf()
     val transitions: MutableList<Transition> = mutableListOf()
+    val outcomes: MutableMap<String, Enum<*>> = mutableMapOf()
     lateinit var spec: Spec
-
-    constructor(scenario: Scenario) : this()
 }
 
 sealed class Spec {
     val children: MutableList<Spec> = mutableListOf()
 }
 
-sealed class State(val name: String) : Spec()
-class Active(name: String, val activity: Activity) : State(name)
-class Passive(name: String) : State(name)
+sealed class State(val name: String, val activity: Activity) : Spec()
+class State1(name: String, activity: Activity) : State(name, activity)
+class State2(name: String, activity: Activity, val label: Enum<*>) : State(name, activity)
 
 data class Event(val label: Enum<*>) : Spec()
 
@@ -452,3 +373,41 @@ sealed class Transition
 
 data class Transition1(val from: String, val to: String) : Transition()
 data class Transition2(val from: String, val on: Enum<*>, val to: String) : Transition()
+
+fun Scenario.build() {
+    val queue = ArrayDeque<Spec>()
+    queue.addFirst(spec)
+
+    while (queue.isNotEmpty()) {
+        val spec1 = queue.removeLast()
+        when (spec1) {
+            is State2 -> {
+                states[spec1.name] = spec1.activity
+                outcomes[spec1.name] = spec1.label
+            }
+
+            is State -> {
+                states[spec1.name] = spec1.activity
+            }
+
+            is Event -> {}
+        }
+        for (spec2 in spec1.children) {
+            when (spec1) {
+                is State -> when (spec2) {
+                    is State -> {
+                        transitions.add(Transition1(spec1.name, spec2.name))
+                    }
+
+                    is Event -> {
+                        val spec3 = spec2.children.single() as State
+                        transitions.add(Transition2(spec1.name, spec2.label, spec3.name))
+                    }
+                }
+
+                is Event -> {}
+            }
+            queue.addFirst(spec2)
+        }
+    }
+}
