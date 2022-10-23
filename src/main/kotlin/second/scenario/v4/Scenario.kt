@@ -15,7 +15,7 @@ data class QueueServer(
     private val s3: QS3,
     private val s4: QS4,
     private val s5: Done
-) : AbstractScenario(s1) {
+) : Scenario(s1) {
     init {
         their(s1) {
             choice(ENQ) {
@@ -48,7 +48,7 @@ class QueueClient(
     private val s4: QC4,
     @Outcome(DONE)
     private val s5: Done
-) : AbstractScenario(s1) {
+) : Scenario(s1) {
     init {
         our(s1) {
             choice(ENQ) {
@@ -70,7 +70,7 @@ class QueueInvoker(
     private val s1: QueueClient,
     private val s2: QI2,
     private val s3: Done
-) : AbstractScenario(s1) {
+) : Scenario(s1) {
     init {
         invoking(s1) {
             outcome(DONE) {
@@ -222,87 +222,86 @@ interface Terminating<in P, out Q> : Activity {
     fun output(context: P): Q
 }
 
-fun <S1 : AbstractScenario, S2 : AbstractScenario> S1.invoking(
+fun <S1 : Scenario, S2 : Scenario> S1.invoking(
     scenario: S2,
     configure: S1.() -> Unit
 ) {
     this.apply(configure)
 }
 
-fun AbstractScenario.our(
+fun Scenario.our(
     state: Deciding<*>,
-    configure: AbstractScenario.() -> Unit
+    configure: Scenario.() -> Unit
 ): String {
-    val fromState = state::class.findAnnotation<Name>()?.value ?: throw IllegalArgumentException()
+    val fromState = state::class.findAnnotation<Name>()!!.value
     this.states[fromState] = state
     this.configure()
     return fromState
 }
 
-fun AbstractScenario.their(
+fun Scenario.their(
     state: Waiting,
-    configure: AbstractScenario.() -> Unit
+    configure: Scenario.() -> Unit
 ): String {
-    val fromState = state::class.findAnnotation<Name>()?.value ?: throw IllegalArgumentException()
+    val fromState = state::class.findAnnotation<Name>()!!.value
     this.states[fromState] = state
     this.configure()
     return fromState
 }
 
-fun AbstractScenario.again(
-    state: Activity
-): String {
-    return state::class.findAnnotation<Name>()?.value ?: throw IllegalArgumentException()
-}
-
-fun AbstractScenario.choice(
+fun Scenario.choice(
     label: Enum<*>,
-    configure: AbstractScenario.() -> String
+    configure: Scenario.() -> String
 ) {
     val fromState = "???"
     val toState = this.configure()
 }
 
-fun AbstractScenario.outcome(
+fun Scenario.outcome(
     label: Enum<*>,
-    configure: AbstractScenario.() -> Unit
+    configure: Scenario.() -> Unit
 ) {
     this.configure()
 }
 
-fun <M> AbstractScenario.receiving(
+fun <M> Scenario.receiving(
     state: Receiving<*, M, *>,
-    configure: AbstractScenario.() -> String
+    configure: Scenario.() -> String
 ): String {
-    val fromState = state::class.findAnnotation<Name>()?.value ?: throw IllegalArgumentException()
+    val fromState = state::class.findAnnotation<Name>()!!.value
     this.states[fromState] = state
     val toState = this.configure()
     return fromState
 }
 
-fun <T> AbstractScenario.sending(
+fun <T> Scenario.sending(
     state: Sending<*, T, *>,
-    configure: AbstractScenario.() -> String
+    configure: Scenario.() -> String
 ): String {
-    val fromState = state::class.findAnnotation<Name>()?.value ?: throw IllegalArgumentException()
+    val fromState = state::class.findAnnotation<Name>()!!.value
     this.states[fromState] = state
     val toState = this.configure()
     return fromState
 }
 
-fun AbstractScenario.terminating(
+fun Scenario.again(
+    state: Activity
+): String {
+    return state::class.findAnnotation<Name>()!!.value
+}
+
+fun Scenario.terminating(
     state: Terminating<*, *>
 ): String {
-    val endState = state::class.findAnnotation<Name>()?.value ?: throw IllegalArgumentException()
+    val endState = state::class.findAnnotation<Name>()!!.value
     this.states[endState] = state
     return endState
 }
 
-abstract class AbstractScenario(
+abstract class Scenario(
     private val initial: Initiating<*, *>
 ) {
     val states: MutableMap<String, Activity> = mutableMapOf()
-    val transitions: MutableMap<Enum<*>, String> = mutableMapOf()
 
-    constructor(scenario: AbstractScenario) : this(scenario.initial)
+    constructor(scenario: Scenario) : this(scenario.initial)
 }
