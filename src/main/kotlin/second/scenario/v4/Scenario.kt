@@ -78,19 +78,26 @@ data class QueueServer2(
 
         while (queue.isNotEmpty()) {
             val spec1 = queue.removeLast()
+            when (spec1) {
+                is Active -> states[spec1.name] = spec1.activity
+                else -> {}
+            }
             for (spec2 in spec1.children) {
-                queue.addFirst(spec2)
                 when (spec1) {
                     is State -> when (spec2) {
-                        is State -> transitions.add(Transition1(spec1.name, spec2.name))
+                        is State -> {
+                            transitions.add(Transition1(spec1.name, spec2.name))
+                        }
+
                         is Event -> {
-                            val spec3 = spec2.children.first() as State
-                            transitions.add(Transition2(spec1.name, spec2.name, spec3.name))
+                            val spec3 = spec2.children.single() as State
+                            transitions.add(Transition2(spec1.name, spec2.label, spec3.name))
                         }
                     }
 
-                    is Event -> {}
+                    else -> {}
                 }
+                queue.addFirst(spec2)
             }
         }
     }
@@ -296,7 +303,7 @@ fun Spec.our2(
     configure: Spec.() -> Unit
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
-    val node = State(name)
+    val node = Active(name, state)
     node.configure()
     children.add(node)
 }
@@ -316,7 +323,7 @@ fun Scenario.initialing(
     configure: Spec.() -> Unit
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
-    spec = State(name)
+    spec = Active(name, state)
     spec.configure()
 }
 
@@ -325,7 +332,7 @@ fun Spec.their2(
     configure: Spec.() -> Unit
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
-    val node = State(name)
+    val node = Active(name, state)
     node.configure()
     children.add(node)
 }
@@ -369,7 +376,7 @@ fun <M> Spec.receiving2(
     configure: Spec.() -> Unit
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
-    val node = State(name)
+    val node = Active(name, state)
     node.configure()
     children.add(node)
 }
@@ -389,7 +396,7 @@ fun <T> Spec.sending2(
     configure: Spec.() -> Unit
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
-    val node = State(name)
+    val node = Active(name, state)
     node.configure()
     children.add(node)
 }
@@ -404,7 +411,7 @@ fun Spec.again2(
     state: Activity
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
-    children.add(State(name))
+    children.add(Passive(name))
 }
 
 fun Scenario.terminating(
@@ -419,7 +426,7 @@ fun Spec.terminating2(
     state: Terminating<*, *>
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
-    children.add(State(name))
+    children.add(Passive(name))
 }
 
 abstract class Scenario(
@@ -435,9 +442,13 @@ sealed class Spec {
     val children: MutableList<Spec> = mutableListOf()
 }
 
-data class State(val name: String) : Spec()
-data class Event(val name: Enum<*>) : Spec()
+sealed class State(val name: String) : Spec()
+class Active(name: String, val activity: Activity) : State(name)
+class Passive(name: String) : State(name)
+
+data class Event(val label: Enum<*>) : Spec()
 
 sealed class Transition
+
 data class Transition1(val from: String, val to: String) : Transition()
 data class Transition2(val from: String, val on: Enum<*>, val to: String) : Transition()
