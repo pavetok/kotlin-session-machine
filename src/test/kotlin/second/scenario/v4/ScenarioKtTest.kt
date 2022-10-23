@@ -26,4 +26,19 @@ internal class ScenarioKtTest {
                 entry("done", s5)
             )
     }
+
+    @Test
+    internal fun shouldCreateQueueServer2() {
+        // given
+        val s0 = QS0()
+        val s1 = QS1()
+        val s2 = QS2 { "foo" }
+        val s3 = QS3()
+        val s4 = QS4 { it }
+        val s5 = Done()
+        // when
+        val queueServer = QueueServer2(s0, s1, s2, s3, s4, s5)
+        // then
+        println(queueServer)
+    }
 }

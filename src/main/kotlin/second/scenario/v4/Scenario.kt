@@ -15,7 +15,7 @@ data class QueueServer(
     private val s3: QS3,
     private val s4: QS4,
     private val s5: Done
-) : Scenario(s1) {
+) : Scenario() {
     init {
         their(s1) {
             choice(ENQ) {
@@ -39,6 +39,40 @@ data class QueueServer(
     }
 }
 
+@Name("qs")
+data class QueueServer2(
+    private val s0: QS0,
+    private val s1: QS1,
+    private val s2: QS2,
+    private val s3: QS3,
+    private val s4: QS4,
+    private val s5: Done
+) : Scenario() {
+    init {
+        initialing(s0) {
+            their2(s1) {
+                choice2(ENQ) {
+                    receiving2(s2) {
+                        again2(s1)
+                    }
+                }
+                choice2(DEQ) {
+                    our2(s3) {
+                        choice2(SOME) {
+                            sending2(s4) {
+                                again2(s1)
+                            }
+                        }
+                        choice2(NONE) {
+                            terminating2(s5)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Name("qc")
 class QueueClient(
     private val s1: QC1,
@@ -48,7 +82,7 @@ class QueueClient(
     private val s4: QC4,
     @Outcome(DONE)
     private val s5: Done
-) : Scenario(s1) {
+) : Scenario() {
     init {
         our(s1) {
             choice(ENQ) {
@@ -145,20 +179,15 @@ class QC4 : Terminating<String, String> {
     }
 }
 
-val queueClient = QueueClient(
-    QC1(),
-    QC2 { it },
-    QC3 { "foo" },
-    QC4(),
-    Done()
-)
-
-@Name("s1")
-class QS1 : Initiating<Unit, List<String>>, Waiting {
+@Name("s0")
+class QS0 : Initiating<Unit, List<String>> {
     override fun input(context: Unit): List<String> {
         return listOf()
     }
 }
+
+@Name("s1")
+class QS1 : Waiting
 
 @Name("s2")
 class QS2(
@@ -239,6 +268,16 @@ fun Scenario.our(
     return fromState
 }
 
+fun Spec.our2(
+    state: Deciding<*>,
+    configure: Spec.() -> Unit
+) {
+    val name = state::class.findAnnotation<Name>()!!.value
+    val node = State(name)
+    node.configure()
+    children.add(node)
+}
+
 fun Scenario.their(
     state: Waiting,
     configure: Scenario.() -> Unit
@@ -249,12 +288,40 @@ fun Scenario.their(
     return fromState
 }
 
+fun Scenario.initialing(
+    state: Initiating<*, *>,
+    configure: Spec.() -> Unit
+) {
+    val name = state::class.findAnnotation<Name>()!!.value
+    spec = State(name)
+    spec.configure()
+}
+
+fun Spec.their2(
+    state: Waiting,
+    configure: Spec.() -> Unit
+) {
+    val name = state::class.findAnnotation<Name>()!!.value
+    val node = State(name)
+    node.configure()
+    children.add(node)
+}
+
 fun Scenario.choice(
     label: Enum<*>,
     configure: Scenario.() -> String
 ) {
     val fromState = "???"
     val toState = this.configure()
+}
+
+fun Spec.choice2(
+    label: Enum<*>,
+    configure: Spec.() -> Unit
+) {
+    val event = Event(label)
+    event.configure()
+    children.add(event)
 }
 
 fun Scenario.outcome(
@@ -274,6 +341,16 @@ fun <M> Scenario.receiving(
     return fromState
 }
 
+fun <M> Spec.receiving2(
+    state: Receiving<*, M, *>,
+    configure: Spec.() -> Unit
+) {
+    val name = state::class.findAnnotation<Name>()!!.value
+    val node = State(name)
+    node.configure()
+    children.add(node)
+}
+
 fun <T> Scenario.sending(
     state: Sending<*, T, *>,
     configure: Scenario.() -> String
@@ -284,10 +361,27 @@ fun <T> Scenario.sending(
     return fromState
 }
 
+fun <T> Spec.sending2(
+    state: Sending<*, T, *>,
+    configure: Spec.() -> Unit
+) {
+    val name = state::class.findAnnotation<Name>()!!.value
+    val node = State(name)
+    node.configure()
+    children.add(node)
+}
+
 fun Scenario.again(
     state: Activity
 ): String {
     return state::class.findAnnotation<Name>()!!.value
+}
+
+fun Spec.again2(
+    state: Activity
+) {
+    val againState = state::class.findAnnotation<Name>()!!.value
+    children.add(State(againState))
 }
 
 fun Scenario.terminating(
@@ -298,10 +392,24 @@ fun Scenario.terminating(
     return endState
 }
 
+fun Spec.terminating2(
+    state: Terminating<*, *>
+) {
+    val terminalState = state::class.findAnnotation<Name>()!!.value
+    children.add(State(terminalState))
+}
+
 abstract class Scenario(
-    private val initial: Initiating<*, *>
 ) {
     val states: MutableMap<String, Activity> = mutableMapOf()
+    lateinit var spec: Spec
 
-    constructor(scenario: Scenario) : this(scenario.initial)
+    constructor(scenario: Scenario) : this()
 }
+
+sealed class Spec {
+    val children: MutableList<Spec> = mutableListOf()
+}
+
+class State(val name: String) : Spec()
+class Event(val name: Enum<*>) : Spec()
