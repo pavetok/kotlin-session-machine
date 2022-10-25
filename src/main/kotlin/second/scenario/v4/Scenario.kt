@@ -15,7 +15,7 @@ data class QueueServer(
     private val s2: QS2,
     private val s3: QS3,
     private val s4: QS4,
-    private val s5: Done
+    private val s5: Terminal
 ) : Scenario(s0) {
     init {
         their(s1) {
@@ -48,14 +48,14 @@ data class QueueServer(
 data class QueueClient(
     private val s1: QC1,
     private val s2: QC2,
-    private val s3: QC3,
+    private val s3: Done,
     private val s4: QC4
 ) : Scenario() {
     init {
         inputting {
             choice(ENQ) {
                 sending(s1) {
-                    terminating(s3) {
+                    outputting(s3) {
                         DONE
                     }
                 }
@@ -80,7 +80,7 @@ data class QueueInvoker(
     private val s0: QI0,
     private val s1: QueueClient,
     private val s2: QI2,
-    private val s3: Done
+    private val s3: Terminal
 ) : Scenario(s0) {
     init {
         invoking(s1) {
@@ -149,14 +149,6 @@ class QC2(
     }
 }
 
-@Name("s3")
-class QC3(
-) : Terminating<Unit> {
-    override fun terminate(context: Unit) {
-        TODO()
-    }
-}
-
 @Name("s4")
 class QC4(
 ) : Outputting<String, String> {
@@ -208,9 +200,16 @@ class QS4(
     }
 }
 
+@Name("terminal")
+class Terminal : Terminating<Any> {
+    override fun terminate(context: Any) {
+        // do nothing
+    }
+}
+
 @Name("done")
-class Done : Terminating<Unit> {
-    override fun terminate(context: Unit) {
+class Done : Outputting<Any, Unit> {
+    override fun output(context: Any) {
         // do nothing
     }
 }
@@ -223,26 +222,24 @@ interface Initiating<out T> : Activity {
 
 interface Waiting<L : Enum<L>> : Activity
 
-interface Receiving<in P, in M, out Q> : Activity {
-    fun receive(context: P): Q
+interface Receiving<in A, in M, out B> : Activity {
+    fun receive(context: A): B
 }
 
-interface Deciding<in P, out L : Enum<out L>> : Activity {
-    fun decide(context: P): L
+interface Deciding<in A, out L : Enum<out L>> : Activity {
+    fun decide(context: A): L
 }
 
-interface Sending<in P, out T, out Q> : Activity {
-    fun send(context: P): Q
+interface Sending<in A, out M, out B> : Activity {
+    fun send(context: A): B
 }
 
 interface Terminating<in T> : Activity {
     fun terminate(context: T)
 }
 
-interface Outcoming<L : Enum<L>> : Activity
-
-interface Outputting<in P, out Q> : Activity {
-    fun output(context: P): Q
+interface Outputting<in A, out B> : Activity {
+    fun output(context: A): B
 }
 
 object Noop : Activity
@@ -278,12 +275,12 @@ fun Scenario.our(
 fun Scenario.inputting(
     configure: Spec.() -> Unit
 ) {
-    spec = Empty
+    spec = Input
     spec.configure()
 }
 
-fun <P, L : Enum<L>> Spec.our(
-    state: Deciding<P, L>,
+fun <A, L : Enum<L>> Spec.our(
+    state: Deciding<A, L>,
     configure: Spec.() -> Unit
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
@@ -315,22 +312,22 @@ fun <L : Enum<L>> Spec.choice(
     label: L,
     configure: Spec.() -> Unit
 ) {
-    val event = Event(label)
-    event.configure()
-    children.add(event)
+    val node = Event(label)
+    node.configure()
+    children.add(node)
 }
 
 fun <L : Enum<L>> Spec.outcome(
     label: L,
     configure: Spec.() -> Unit
 ) {
-    val event = Event(label)
-    event.configure()
-    children.add(event)
+    val node = Event(label)
+    node.configure()
+    children.add(node)
 }
 
-fun <P, M, Q> Spec.receiving(
-    state: Receiving<P, M, Q>,
+fun <A, M, B> Spec.receiving(
+    state: Receiving<A, M, B>,
     configure: Spec.() -> Unit
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
@@ -339,8 +336,8 @@ fun <P, M, Q> Spec.receiving(
     children.add(node)
 }
 
-fun <P, M, Q> Spec.sending(
-    state: Sending<P, M, Q>,
+fun <A, M, B> Spec.sending(
+    state: Sending<A, M, B>,
     configure: Spec.() -> Unit
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
@@ -371,8 +368,8 @@ fun <T, L : Enum<L>> Spec.terminating(
     children.add(State2(name, state, outcome()))
 }
 
-fun <L : Enum<L>, P, Q> Spec.outputting(
-    state: Outputting<P, Q>,
+fun <A, B, L : Enum<L>> Spec.outputting(
+    state: Outputting<A, B>,
     outcome: () -> L
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
@@ -384,17 +381,18 @@ abstract class Scenario(
         override fun initiate() = Unit
     }
 ) : Activity {
+    lateinit var spec: Spec
+    val inputs: MutableMap<Enum<*>, String> = mutableMapOf()
     val states: MutableMap<String, Activity> = mutableMapOf()
     val transitions: MutableList<Transition> = mutableListOf()
-    val outcomes: MutableMap<String, Enum<*>> = mutableMapOf()
-    lateinit var spec: Spec
+    val outputs: MutableMap<String, Enum<*>> = mutableMapOf()
 }
 
 sealed class Spec {
     val children: MutableList<Spec> = mutableListOf()
 }
 
-object Empty : Spec()
+object Input : Spec()
 
 sealed class State(val name: String, val activity: Activity) : Spec()
 class State1(name: String, activity: Activity) : State(name, activity)
@@ -416,15 +414,14 @@ fun Scenario.build() {
         when (spec1) {
             is State2 -> {
                 states[spec1.name] = spec1.activity
-                outcomes[spec1.name] = spec1.label
+                outputs[spec1.name] = spec1.label
             }
 
             is State -> {
                 states[spec1.name] = spec1.activity
             }
 
-            is Event -> {}
-            Empty -> {}
+            else -> {}
         }
         for (spec2 in spec1.children) {
             when (spec1) {
@@ -438,11 +435,19 @@ fun Scenario.build() {
                         transitions.add(Transition2(spec1.name, spec2.label, spec3.name))
                     }
 
-                    Empty -> {}
+                    else -> {}
                 }
 
-                is Event -> {}
-                Empty -> {}
+                Input -> when (spec2) {
+                    is Event -> {
+                        val spec3 = spec2.children.single() as State
+                        inputs[spec2.label] = spec3.name
+                    }
+
+                    else -> {}
+                }
+
+                else -> {}
             }
             queue.addFirst(spec2)
         }
