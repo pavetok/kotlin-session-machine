@@ -52,7 +52,7 @@ data class QueueClient(
     private val s4: QC4
 ) : Scenario() {
     init {
-        inputting {
+        caller {
             choice(ENQ) {
                 sending(s1) {
                     outputting(s3) {
@@ -77,19 +77,30 @@ data class QueueClient(
 
 @Name("qi")
 data class QueueInvoker(
-    private val s0: QI0,
-    private val s1: QueueClient,
+    private val s1: QI1,
     private val s2: QI2,
-    private val s3: Terminal
-) : Scenario(s0) {
+    private val s3: QI3,
+    private val s4: QI4,
+    private val s5: Terminal
+) : Scenario() {
     init {
-        invoking(s1) {
-            outcome(DONE) {
-                terminating(s3)
+        caller(s1) {
+            choice(ENQ) {
+                passing(s2) {
+                    callee(s3) {
+                        choice(DONE) {//
+                            terminating(s5)
+                        }
+                    }
+                }
             }
-            outcome(RESULT) {
-                receiving(s2) {
-                    terminating(s3)
+            choice(DEQ) {
+                callee(s3) {
+                    choice(RESULT) {
+                        retrieving(s4) {
+                            terminating(s5)
+                        }
+                    }
                 }
             }
         }
@@ -114,19 +125,31 @@ enum class OutcomeChoice {
 
 annotation class Name(val value: String)
 
-@Name("s0")
-class QI0(
-) : Initiating<ClientChoice> {
-    override fun initiate(): ClientChoice {
-        return ENQ // а где элемент?
-    }
+@Name("s1")
+class QI1(
+    override val scenario: Scenario
+) : Invoking {
+
 }
 
 @Name("s2")
 class QI2(
+) : Passing<String, ClientChoice, String> {
+    override fun pass(context: String): Pair<ClientChoice, String> {
+        TODO()
+    }
+}
+
+@Name("s3")
+class QI3(
+) : Waiting<OutcomeChoice> {
+}
+
+@Name("s4")
+class QI4(
     private val produce: () -> String
-) : Receiving<Unit, String, Unit> {
-    override fun receive(context: Unit) {
+) : Retrieving<Unit, String, Unit> {
+    override fun retrieve(context: Unit) {
         println(produce())
     }
 }
@@ -226,12 +249,20 @@ interface Receiving<in A, in M, out B> : Activity {
     fun receive(context: A): B
 }
 
+interface Retrieving<in A, in M, out B> : Activity {
+    fun retrieve(context: A): B
+}
+
 interface Deciding<in A, out L : Enum<out L>> : Activity {
     fun decide(context: A): L
 }
 
 interface Sending<in A, out M, out B> : Activity {
     fun send(context: A): B
+}
+
+interface Passing<in A, L : Enum<L>, M> : Activity {
+    fun pass(context: A): Pair<L, M>
 }
 
 interface Terminating<in T> : Activity {
@@ -242,18 +273,22 @@ interface Outputting<in A, out B> : Activity {
     fun output(context: A): B
 }
 
+interface Invoking : Activity {
+    val scenario: Scenario
+}
+
 object Noop : Activity
 
-fun Scenario.invoking(
-    scenario: Activity,
+fun Scenario.caller(
+    state: Invoking,
     configure: Spec.() -> Unit
 ) {
-    val name = scenario::class.findAnnotation<Name>()!!.value
-    spec = State1(name, scenario)
+    val name = state::class.findAnnotation<Name>()!!.value
+    spec = State1(name, state)
     spec.configure()
 }
 
-fun Spec.invoking(
+fun Spec.caller(
     scenario: Activity,
     configure: Spec.() -> Unit
 ) {
@@ -272,7 +307,7 @@ fun Scenario.our(
     spec.configure()
 }
 
-fun Scenario.inputting(
+fun Scenario.caller(
     configure: Spec.() -> Unit
 ) {
     spec = Input
@@ -289,8 +324,8 @@ fun <A, L : Enum<L>> Spec.our(
     children.add(node)
 }
 
-fun Scenario.their(
-    state: Activity,
+fun <L : Enum<L>> Scenario.their(
+    state: Waiting<L>,
     configure: Spec.() -> Unit
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
@@ -298,8 +333,18 @@ fun Scenario.their(
     spec.configure()
 }
 
-fun Spec.their(
-    state: Activity,
+fun <L : Enum<L>> Spec.their(
+    state: Waiting<L>,
+    configure: Spec.() -> Unit
+) {
+    val name = state::class.findAnnotation<Name>()!!.value
+    val node = State1(name, state)
+    node.configure()
+    children.add(node)
+}
+
+fun <L : Enum<L>> Spec.callee(
+    state: Waiting<L>,
     configure: Spec.() -> Unit
 ) {
     val name = state::class.findAnnotation<Name>()!!.value
@@ -336,8 +381,28 @@ fun <A, M, B> Spec.receiving(
     children.add(node)
 }
 
+fun <A, M, B> Spec.retrieving(
+    state: Retrieving<A, M, B>,
+    configure: Spec.() -> Unit
+) {
+    val name = state::class.findAnnotation<Name>()!!.value
+    val node = State1(name, state)
+    node.configure()
+    children.add(node)
+}
+
 fun <A, M, B> Spec.sending(
     state: Sending<A, M, B>,
+    configure: Spec.() -> Unit
+) {
+    val name = state::class.findAnnotation<Name>()!!.value
+    val node = State1(name, state)
+    node.configure()
+    children.add(node)
+}
+
+fun <A, L : Enum<L>, T> Spec.passing(
+    state: Passing<A, L, T>,
     configure: Spec.() -> Unit
 ) {
     val name = state::class.findAnnotation<Name>()!!.value

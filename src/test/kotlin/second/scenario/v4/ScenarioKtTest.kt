@@ -27,11 +27,13 @@ internal class ScenarioKtTest {
         val qc3 = Done()
         val qc4 = QC4()
         // and
-        val qi0 = QI0()
-        val qi1 = QueueClient(qc1, qc2, qc3, qc4)
-        val qi2 = QI2 { "foo" }
+        val queueClient = QueueClient(qc1, qc2, qc3, qc4)
+        val qi1 = QI1(queueClient)
+        val qi2 = QI2()
+        val qi3 = QI3()
+        val qi4 = QI4 { "foo" }
         // when
-        val queueInvoker = QueueInvoker(qi0, qi1, qi2, Terminal())
+        val queueInvoker = QueueInvoker(qi1, qi2, qi3, qi4, Terminal())
         // then
         println(queueInvoker)
     }
