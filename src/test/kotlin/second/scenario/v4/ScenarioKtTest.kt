@@ -3,6 +3,7 @@ package second.scenario.v4
 import com.charleskorn.kaml.Yaml
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 internal class ScenarioKtTest {
@@ -63,10 +64,32 @@ internal class ScenarioKtTest {
                 none: !<close>
                   name: Done
         """.trimIndent()
+        // and
+        val typeName = "QueueServer"
+        val expectedSessionType = SessionType(
+            name = typeName,
+            then = Their(
+                mapOf(
+                    "enq" to Recv(
+                        Var("A"),
+                        Again(typeName)
+                    ),
+                    "deq" to Our(
+                        mapOf(
+                            "some" to Send(
+                                Var("A"),
+                                Again(typeName)
+                            ),
+                            "none" to Close("Done")
+                        )
+                    )
+                )
+            )
+        )
         // when
-        val result = Yaml.default.decodeFromString(SessionType.serializer(), input)
-        // when
-        println(result)
+        val actualSessionType = Yaml.default.decodeFromString(SessionType.serializer(), input)
+        // then
+        assertThat(actualSessionType).isEqualTo(expectedSessionType)
     }
 }
 
