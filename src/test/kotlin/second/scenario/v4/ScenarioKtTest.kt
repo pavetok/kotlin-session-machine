@@ -45,19 +45,19 @@ internal class ScenarioKtTest {
     @Test
     internal fun testYamlNotation() {
         // given
-        val input = """
+        val yaml = """
         name: &QS QueueServer
         then: !<their>
-          options:
+          choice:
             enq: !<recv>
               what: !<var>
                 name: A
               then: !<again>
                 name: *QS
             deq: !<our>
-              options:
+              choice:
                 some: !<send>
-                  what:
+                  what: !<var>
                     name: A
                   then: !<again>
                     name: *QS
@@ -87,7 +87,7 @@ internal class ScenarioKtTest {
             )
         )
         // when
-        val actualSessionType = Yaml.default.decodeFromString(SessionType.serializer(), input)
+        val actualSessionType = Yaml.default.decodeFromString(SessionType.serializer(), yaml)
         // then
         assertThat(actualSessionType).isEqualTo(expectedSessionType)
     }
@@ -96,55 +96,59 @@ internal class ScenarioKtTest {
 @Serializable
 data class SessionType(
     val name: String,
-    val then: SessionOp
+    val then: Behaviour
 )
 
 @Serializable
-sealed class SessionOp
+sealed class Behaviour
+
+sealed class Choice : Behaviour()
+sealed class Communication : Behaviour()
+sealed class Termination : Behaviour()
 
 @Serializable
 @SerialName("their")
 data class Their(
-    val options: Map<String, SessionOp>
-) : SessionOp()
+    val choice: Map<String, Behaviour>
+) : Choice()
 
 @Serializable
 @SerialName("our")
 data class Our(
-    val options: Map<String, SessionOp>
-) : SessionOp()
+    val choice: Map<String, Behaviour>
+) : Choice()
 
 @Serializable
 @SerialName("recv")
 data class Recv(
     val what: Var,
-    val then: SessionOp
-) : SessionOp()
+    val then: Behaviour
+) : Communication()
+
+@Serializable
+@SerialName("send")
+data class Send(
+    val what: Var,
+    val then: Behaviour
+) : Communication()
+
+@Serializable
+@SerialName("close")
+data class Close(
+    val name: String
+) : Termination()
+
+@Serializable
+@SerialName("again")
+data class Again(
+    val name: String
+) : Behaviour()
 
 @Serializable
 data class Var(
     val name: String
 )
 
-@Serializable
-@SerialName("send")
-data class Send(
-    val what: Var,
-    val then: SessionOp
-) : SessionOp()
-
-@Serializable
-@SerialName("close")
-data class Close(
-    val name: String
-) : SessionOp()
-
-@Serializable
-@SerialName("again")
-data class Again(
-    val name: String
-) : SessionOp()
-
-fun choice(vararg pairs: Pair<String, SessionOp>) = mapOf(*pairs)
+fun choice(vararg pairs: Pair<String, Behaviour>) = mapOf(*pairs)
 
 infix fun <A, B> A.then(that: B): Pair<A, B> = Pair(this, that)
