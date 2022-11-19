@@ -1,5 +1,8 @@
 package second.scenario.v4
 
+import com.charleskorn.kaml.Yaml
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import org.junit.jupiter.api.Test
 
 internal class ScenarioKtTest {
@@ -37,4 +40,84 @@ internal class ScenarioKtTest {
         // then
         println(queueInvoker)
     }
+
+    @Test
+    internal fun testYamlNotation() {
+        // given
+        val input = """
+        name: &QS QueueServer
+        then: !<their>
+          options:
+            enq: !<recv>
+              what: !<var>
+                name: A
+              then: !<again>
+                name: *QS
+            deq: !<our>
+              options:
+                some: !<send>
+                  what:
+                    name: A
+                  then: !<again>
+                    name: *QS
+                none: !<close>
+                  name: Done
+        """.trimIndent()
+        // when
+        val result = Yaml.default.decodeFromString(SessionType.serializer(), input)
+        // when
+        println(result)
+    }
 }
+
+@Serializable
+data class SessionType(
+    val name: String,
+    val then: SessionOp
+)
+
+@Serializable
+sealed class SessionOp
+
+@Serializable
+@SerialName("their")
+data class Their(
+    val options: Map<String, SessionOp>
+) : SessionOp()
+
+@Serializable
+@SerialName("our")
+data class Our(
+    val options: Map<String, SessionOp>
+) : SessionOp()
+
+@Serializable
+@SerialName("recv")
+data class Recv(
+    val what: Var,
+    val then: SessionOp
+) : SessionOp()
+
+@Serializable
+data class Var(
+    val name: String
+)
+
+@Serializable
+@SerialName("send")
+data class Send(
+    val what: Var,
+    val then: SessionOp
+) : SessionOp()
+
+@Serializable
+@SerialName("close")
+data class Close(
+    val name: String
+) : SessionOp()
+
+@Serializable
+@SerialName("again")
+data class Again(
+    val name: String
+) : SessionOp()
