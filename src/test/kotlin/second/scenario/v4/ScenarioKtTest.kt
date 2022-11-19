@@ -65,22 +65,22 @@ internal class ScenarioKtTest {
                   name: Done
         """.trimIndent()
         // and
-        val typeName = "QueueServer"
+        val queueServer = "QueueServer"
         val expectedSessionType = SessionType(
-            name = typeName,
+            name = queueServer,
             then = Their(
-                mapOf(
-                    "enq" to Recv(
+                choice(
+                    "enq" then Recv(
                         Var("A"),
-                        Again(typeName)
+                        Again(queueServer)
                     ),
-                    "deq" to Our(
-                        mapOf(
-                            "some" to Send(
+                    "deq" then Our(
+                        choice(
+                            "some" then Send(
                                 Var("A"),
-                                Again(typeName)
+                                Again(queueServer)
                             ),
-                            "none" to Close("Done")
+                            "none" then Close("Done")
                         )
                     )
                 )
@@ -144,3 +144,7 @@ data class Close(
 data class Again(
     val name: String
 ) : SessionOp()
+
+fun choice(vararg pairs: Pair<String, SessionOp>) = mapOf(*pairs)
+
+infix fun <A, B> A.then(that: B): Pair<A, B> = Pair(this, that)
