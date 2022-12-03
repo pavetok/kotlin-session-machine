@@ -48,7 +48,7 @@ internal class ScenarioKtTest {
     internal fun testYamlNotation() {
         // given
         val yaml = """
-        name: &QS QueueServer
+        what: !<type> QueueServer
         then: !<their>
           choice:
             enq: !<recv>
@@ -62,9 +62,9 @@ internal class ScenarioKtTest {
                 none: !<close> Done
         """.trimIndent()
         // and
-        val queueServer = "QueueServer"
+        val queueServer = Type("QueueServer")
         val expectedSessionType = SessionType(
-            name = queueServer,
+            what = queueServer,
             then = Their(
                 choice(
                     "enq" then Recv(
@@ -130,7 +130,7 @@ object Custom2Serializer : KSerializer<Custom2> {
 
 @Serializable
 data class SessionType(
-    val name: String,
+    val what: Type,
     val then: Behaviour
 )
 
@@ -140,6 +140,14 @@ sealed class Behaviour
 sealed class Choice : Behaviour()
 sealed class Communication : Behaviour()
 sealed class Termination : Behaviour()
+
+@Serializable
+sealed class Pointer
+
+@Serializable(with = TypeSerializer::class)
+data class Type(
+    val name: String
+) : Pointer()
 
 @Serializable
 @SerialName("their")
@@ -156,14 +164,14 @@ data class Our(
 @Serializable
 @SerialName("recv")
 data class Recv(
-    val what: Var,
+    val what: Pointer,
     val then: Behaviour
 ) : Communication()
 
 @Serializable
 @SerialName("send")
 data class Send(
-    val what: Var,
+    val what: Pointer,
     val then: Behaviour
 ) : Communication()
 
@@ -174,13 +182,13 @@ data class Close(
 
 @Serializable(with = AgainSerializer::class)
 data class Again(
-    val name: String
-) : Behaviour()
+    val type: Type
+) : Termination()
 
 @Serializable(with = VarSerializer::class)
 data class Var(
     val name: String
-)
+) : Pointer()
 
 fun choice(vararg pairs: Pair<String, Behaviour>) = mapOf(*pairs)
 
@@ -198,15 +206,29 @@ object CloseSerializer : KSerializer<Close> {
     }
 }
 
+@OptIn(ExperimentalSerializationApi::class)
 object AgainSerializer : KSerializer<Again> {
-    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("again", PrimitiveKind.STRING)
+    private val delegateSerializer = TypeSerializer
+    override val descriptor: SerialDescriptor = SerialDescriptor("again", delegateSerializer.descriptor)
 
     override fun serialize(encoder: Encoder, value: Again) {
-        encoder.encodeString(value.name)
+        encoder.encodeSerializableValue(delegateSerializer, value.type)
     }
 
     override fun deserialize(decoder: Decoder): Again {
-        return Again(decoder.decodeString())
+        return Again(decoder.decodeSerializableValue(delegateSerializer))
+    }
+}
+
+object TypeSerializer : KSerializer<Type> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("type", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: Type) {
+        encoder.encodeString(value.name)
+    }
+
+    override fun deserialize(decoder: Decoder): Type {
+        return Type(decoder.decodeString())
     }
 }
 
