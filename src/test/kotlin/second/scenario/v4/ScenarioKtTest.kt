@@ -1,8 +1,10 @@
 package second.scenario.v4
 
 import com.charleskorn.kaml.Yaml
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
+import kotlinx.serialization.*
+import kotlinx.serialization.descriptors.*
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -50,19 +52,14 @@ internal class ScenarioKtTest {
         then: !<their>
           choice:
             enq: !<recv>
-              what: !<var>
-                name: A
-              then: !<again>
-                name: *QS
+              what: !<var> A
+              then: !<again> QueueServer
             deq: !<our>
               choice:
                 some: !<send>
-                  what: !<var>
-                    name: A
-                  then: !<again>
-                    name: *QS
-                none: !<close>
-                  name: Done
+                  what: !<var> A
+                  then: !<again> QueueServer
+                none: !<close> Done
         """.trimIndent()
         // and
         val queueServer = "QueueServer"
@@ -90,6 +87,44 @@ internal class ScenarioKtTest {
         val actualSessionType = Yaml.default.decodeFromString(SessionType.serializer(), yaml)
         // then
         assertThat(actualSessionType).isEqualTo(expectedSessionType)
+    }
+
+    @Test
+    fun testScalar() {
+        // given
+        val yaml = """
+        then: Done
+        """.trimIndent()
+        // and
+        val expectedValue = Custom1(
+            then = Custom2("Done")
+        )
+        // when
+        val actualValue = Yaml.default.decodeFromString(Custom1.serializer(), yaml)
+        // then
+        assertThat(actualValue).isEqualTo(expectedValue)
+    }
+}
+
+@Serializable
+data class Custom1(
+    val then: Custom2
+)
+
+@Serializable(with = Custom2Serializer::class)
+data class Custom2(
+    val name: String
+)
+
+object Custom2Serializer : KSerializer<Custom2> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("Custom2", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: Custom2) {
+        encoder.encodeString(value.name)
+    }
+
+    override fun deserialize(decoder: Decoder): Custom2 {
+        return Custom2(decoder.decodeString())
     }
 }
 
@@ -132,19 +167,17 @@ data class Send(
     val then: Behaviour
 ) : Communication()
 
-@Serializable
-@SerialName("close")
+@Serializable(with = CloseSerializer::class)
 data class Close(
     val name: String
 ) : Termination()
 
-@Serializable
-@SerialName("again")
+@Serializable(with = AgainSerializer::class)
 data class Again(
     val name: String
 ) : Behaviour()
 
-@Serializable
+@Serializable(with = VarSerializer::class)
 data class Var(
     val name: String
 )
@@ -152,3 +185,39 @@ data class Var(
 fun choice(vararg pairs: Pair<String, Behaviour>) = mapOf(*pairs)
 
 infix fun <A, B> A.then(that: B): Pair<A, B> = Pair(this, that)
+
+object CloseSerializer : KSerializer<Close> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("close", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: Close) {
+        encoder.encodeString(value.name)
+    }
+
+    override fun deserialize(decoder: Decoder): Close {
+        return Close(decoder.decodeString())
+    }
+}
+
+object AgainSerializer : KSerializer<Again> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("again", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: Again) {
+        encoder.encodeString(value.name)
+    }
+
+    override fun deserialize(decoder: Decoder): Again {
+        return Again(decoder.decodeString())
+    }
+}
+
+object VarSerializer : KSerializer<Var> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("var", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: Var) {
+        encoder.encodeString(value.name)
+    }
+
+    override fun deserialize(decoder: Decoder): Var {
+        return Var(decoder.decodeString())
+    }
+}
